@@ -56,18 +56,6 @@ def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, An
                 0 if task_a == task_b else random.randint(0, 10)
             )
 
-    # Ý tưởng cho precedence, tạm thời lược bớt để đơn giản hóa khâu chuẩn bị objective function.
-    # Sẽ được chỉnh sửa và thêm lại từ từ
-
-    # # Precedence constraint
-    # precedences = []
-    # # Randomly pairwise precedence relations
-    # for _ in range(max(1, n_tasks // 5)):
-    #     task_a, task_b = random.randrange(n_tasks), random.randrange(n_tasks)
-    #     if task_a != task_b:
-    #         precedences.append((task_a, task_b))
-
-    # return tasks, setup_time, precedences
     return tasks, setup_time
 
 
