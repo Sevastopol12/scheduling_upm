@@ -2,86 +2,130 @@ import math
 import random
 import copy
 from typing import Dict, Any, Tuple, List
-from .environment import objective_function, generate_schedule
+from .environment import generate_schedule, objective_function, build_schedule
 
 
 def simulated_annealing(
-    tasks: Dict[str, Any],
-    setups: Dict[Tuple[int, int], int],
+    tasks: Dict[int, Any],
+    setups: Dict[Tuple[int,int], int],
+    precedences: List[Tuple[int,int]],
     n_machines: int,
-    n_iteration: int = 1000,
+    operator_limit: int = 2,
+    n_iteration: int = 2000,
     initial_temp: float = 1000.0,
-):
-    if not tasks or not setups:
-        return []
+    cooling_alpha: float = 0.995,
+    alpha_obj: float = 1.0,
+    beta_obj: float = 1.0,
+    gamma_obj: float = 0.1,
+    seed: int = None
+) -> Tuple[Dict[int,List[int]], float, List[Dict]]:
+    """
+    Simulated Annealing that operates on sequence encoding:
+      - schedule is dict machine -> [op1, op2, ...]
+      - neighbor generation tries swaps between machines or within a machine
+      - neighbor accepted only if build_schedule is feasible (no deadlock)
+    Returns best_schedule, best_energy, history
+    """
+    if seed is not None:
+        random.seed(seed)
 
-    """Simulated Annealing"""
-    # Initial solution
-    history: List[Dict[str, Any]] = []
-    candidate_schedule = generate_schedule(tasks=tasks, n_machines=n_machines)
-    current_schedule: Dict[int, List[int]] = candidate_schedule
-    current_cost: int = objective_function(
-        schedule=candidate_schedule, tasks=tasks, setups=setups
-    )
 
+    # initial solution
+    current_schedule = generate_schedule(tasks, n_machines)
+    current_energy, _ = objective_function(current_schedule, tasks, setups, precedences, operator_limit, alpha_obj, beta_obj, gamma_obj)
     best_schedule = copy.deepcopy(current_schedule)
-    best_cost = current_cost
+    best_energy = current_energy
 
-    for iter in range(n_iteration):
-        temperature: float = cooling_down(initial_temp=initial_temp, iteration=iter)
 
-        candidate_schedule = adjust_schedule(schedule=candidate_schedule)
-        candidate_cost = objective_function(
-            schedule=candidate_schedule, tasks=tasks, setups=setups
-        )
+    history: List[Dict] = []
+    for it in range(n_iteration):
+        T = initial_temp * (cooling_alpha ** it)
+        neighbor = generate_neighbor(current_schedule)
+        # try to evaluate neighbor; if infeasible, try limited number of alternative neighbors
+        tries = 0
+        MAX_TRIES = 50
+        energy, info = objective_function(neighbor, tasks, setups, precedences, operator_limit, alpha_obj, beta_obj, gamma_obj)
+        while (not info.get("feasible", True)) and tries < MAX_TRIES:
+            neighbor = generate_neighbor(current_schedule)
+            energy, info = objective_function(neighbor, tasks, setups, precedences, operator_limit, alpha_obj, beta_obj, gamma_obj)
+            tries += 1
 
-        acp: float = acceptance_probability(
-            old_cost=best_cost, new_cost=candidate_cost, temperature=temperature
-        )
 
-        if random.random() < acp:
-            current_schedule = candidate_schedule
-            current_cost = candidate_cost
+        if not info.get("feasible", True):
+            # couldn't find feasible neighbor; skip iteration
+            history.append({"iter": it, "current_energy": current_energy, "best_energy": best_energy})
+            if T < 1e-9:
+                break
+            continue
 
-        if candidate_cost < best_cost:
-            best_schedule = copy.deepcopy(candidate_schedule)
-            best_cost = candidate_cost
 
-        history.append(
-            {"iteration": iter, "iter_cost": current_cost, "best_cost": best_cost}
-        )
+        # acceptance criterion
+        if accept_move(current_energy, energy, T):
+            current_schedule = neighbor
+            current_energy = energy
 
-        # early stop when temperature got too small
-        if temperature < 1e-8:
+
+        if energy < best_energy:
+            best_schedule = copy.deepcopy(neighbor)
+            best_energy = energy
+
+
+        history.append({"iter": it, "current_energy": current_energy, "best_energy": best_energy})
+
+
+        if T < 1e-9:
             break
 
-    return best_schedule, best_cost, history
+
+    return best_schedule, best_energy, history
 
 
-def adjust_schedule(schedule):
-    """Adjustment in schedule, aims to minimize makespan"""
-    return schedule
 
 
-def acceptance_probability(old_cost, new_cost, temperature):
-    if new_cost < old_cost:  # If better solution, accept it
-        return 1.0
-    # avoid division by zero
-    if temperature <= 0:
-        return 0.0
-    # If worse, accept it with a possibility in attempt to escape local minima
+def generate_neighbor(schedule: Dict[int,List[int]]) -> Dict[int,List[int]]:
+    """
+    Generate neighbor by:
+      - swapping two operations between machines OR
+      - swapping two positions within same machine (with some probability)
+    Note: feasibility is checked in objective_function via build_schedule; this function makes the swap only.
+    """
+    new_sched = copy.deepcopy(schedule)
+    machines = list(new_sched.keys())
+
+
+    # choose swap type
+    if random.random() < 0.4:
+        # swap between two different machines (positions)
+        m1, m2 = random.sample(machines, 2)
+        if not new_sched[m1] or not new_sched[m2]:
+            return new_sched
+        i = random.randrange(len(new_sched[m1]))
+        j = random.randrange(len(new_sched[m2]))
+        new_sched[m1][i], new_sched[m2][j] = new_sched[m2][j], new_sched[m1][i]
+    else:
+        # swap within one machine (if length >=2)
+        m = random.choice(machines)
+        if len(new_sched[m]) < 2:
+            return new_sched
+        i, j = random.sample(range(len(new_sched[m])), 2)
+        new_sched[m][i], new_sched[m][j] = new_sched[m][j], new_sched[m][i]
+
+
+    return new_sched
+
+
+
+
+def accept_move(old_energy: float, new_energy: float, T: float) -> bool:
+    if new_energy < old_energy:
+        return True
+    if T <= 0:
+        return False
     try:
-        return math.exp(
-            -(new_cost - old_cost) / temperature
-        )  # probability of accepting
+        p = math.exp(-(new_energy - old_energy) / T)
     except OverflowError:
-        return 0.0
+        p = 0.0
+    return random.random() < p
 
 
-def cooling_down(initial_temp: float, iteration: int, alpha: float = 0.995):
-    """Exponential cooling"""
-    return initial_temp * (alpha**iteration)
 
-
-if __name__ == "__main__":
-    simulated_annealing(tasks={}, setups={}, n_machines=1)
