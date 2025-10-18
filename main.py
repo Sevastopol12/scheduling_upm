@@ -1,4 +1,4 @@
-from scheduling_upm.environment import generate_environment, generate_schedule, objective_function
+from scheduling_upm.environment import generate_environment, generate_schedule, objective_function,  build_schedule
 from scheduling_upm.simulated_annealing import simulated_annealing
 
 
