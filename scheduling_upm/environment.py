@@ -40,11 +40,13 @@ def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, An
             modifier: float = random.choice([0.6, 0.8, 1.0, 1.2, 1.6])
             times.append(max(1, int(base_proc[t] * modifier)))
 
-        resource: int = random.randint(0, 120)
+        resource_proc: int = random.randint(10, 100)  # Resource needed to perform task
+        resource_setup: int = random.randint(5, 50)  #Resource needed to setup task
         weight: float = random.uniform(1.0, 3.0)
         tasks[t] = {
             "proc_times": times,
-            "resource": resource,
+            "resource_proc": resource_proc,
+            "resource_setup": resource_setup,
             "weight": weight,  # Task's importance
         }
 
@@ -52,9 +54,13 @@ def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, An
     setup_time = {}
     for task_a in range(n_tasks):
         for task_b in range(n_tasks):
-            setup_time[(task_a, task_b)] = (
-                0 if task_a == task_b else random.randint(0, 10)
-            )
+            if task_a == task_b:
+                setup_time[(task_a, task_b)] = 0
+            else:
+                base_setup = random.randint(0, 10)
+                # 
+                resource_factor = tasks[task_b]["resource_setup"] / 100.0
+                setup_time[(task_a, task_b)] = int(base_setup + resource_factor * base_setup)
 
     return tasks, setup_time
 
@@ -78,22 +84,30 @@ def objective_function(
     """Objective: Minimize makespan"""
     # Calculate total-process time of each machine. Accounts for setup time
     machine_makespan: Dict[int, int] = {machine: 0 for machine in schedule.keys()}
+    total_penalty=0
 
     for machine, task_sequence in schedule.items():
         for idx in range(len(task_sequence)):
             # task's process time
             task = task_sequence[idx]
             process_time = tasks[task]["proc_times"][machine]
+
+            process_time += 0.01 * tasks[task]["resource_proc"] 
+
             # setup time when changing task
-            setup_time = (
-                0 if idx < 1 else setups[task_sequence[idx - 1], task_sequence[idx]]
-            )
-            machine_makespan[machine] += process_time + setup_time
+            setup_time = 0
+            if idx > 0:
+                prev_task = task_sequence[idx - 1]
+                setup_time = setups[(prev_task, task)]
+                setup_time += 0.02 * tasks[task]["resource_setup"]
 
-    makespan = max(
-        [total_process_time for total_process_time in machine_makespan.values()]
-    )
+                if tasks[prev_task]["weight"] < tasks[task]["weight"]:
+                    total_penalty += abs(tasks[prev_task]["weight"] - tasks[task]["weight"]) * 2
 
+                    machine_makespan[machine] += process_time + setup_time
+                    makespan = max(machine_makespan.values()) 
+                    objective_value = makespan + total_penalty
+                    return objective_value
     return makespan
 
 
