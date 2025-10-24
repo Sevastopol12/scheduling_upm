@@ -56,8 +56,20 @@ def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, An
                 0 if task_a == task_b else random.randint(0, 10)
             )
 
-    return tasks, setup_time
+ # ràng buộc thứ tự trước sau ehehehe        
+    precedences = []
+    max_relations = (n_tasks*(n_tasks-1))/2 # này là công thức số lượng quan hệ tối đa có thể có
+    num_relations = random.randint(1, max_relations) # cho random số lượng quan hệ trước sau, không nhất thiết tất cả phải có
+    for checkvar in range(num_relations): # ở đây t check 1 tí, để không bị kiểu 1 trước 2, 2 trước 3 nhưng 3 lại trước 1
+        a, b = random.sample(range(n_tasks),2)
+        if a > b:
+            a, b = b, a
+        if (a, b) not in precedences:
+            precedences.append((a, b))
+     
+    return tasks, setup_time, precedences
 
+   
 
 def generate_schedule(
     tasks: Dict[str, Any], n_machines: int = 4
@@ -74,12 +86,17 @@ def objective_function(
     schedule: Dict[int, List[int]],
     tasks: Dict[str, Any],
     setups: Dict[Tuple[int, int], int],
+    precedences: List[Tuple[int, int]], # này là danh sách  thứ tự trước sau, kiểu a, b thì a làm trước b
+    penalty_point: int = 1000 # đây là hình phạt, phải cho 1 số lớn hẳng để khi mà nó sai là cái thời gian tính ra của nó lớn để nó chắc chắn bị loại
+
 ) -> Tuple:
     """Objective: Minimize makespan"""
     # Calculate total-process time of each machine. Accounts for setup time
     machine_makespan: Dict[int, int] = {machine: 0 for machine in schedule.keys()}
+    time_finish_task: Dict [int, int] = {} # đây chính là nơi lưu thời gian hoàn thành. ví dụ như là task a, b thì thời gian b nó phải lớn hơn a, ngược lại là sai
 
     for machine, task_sequence in schedule.items():
+        current_time = 0 # đặt cái thời gian ban đầu, chưa chạy task nào của máy là 0
         for idx in range(len(task_sequence)):
             # task's process time
             task = task_sequence[idx]
@@ -89,12 +106,19 @@ def objective_function(
                 0 if idx < 1 else setups[task_sequence[idx - 1], task_sequence[idx]]
             )
             machine_makespan[machine] += process_time + setup_time
+            current_time += process_time + setup_time # cái current time lúc này phải tính bằng công thức là thời gian chạy task đó và thời gian chạy của task trước đó
+            time_finish_task[task] = current_time # từ đó t ra được cái thời điểm task hoàn thành theo cái ý ở trên 
 
     makespan = max(
         [total_process_time for total_process_time in machine_makespan.values()]
     )
-
-    return makespan
+# check var 1 tí thôi, kiểm tra ràng buộc trước sau thông qua cái thời gian hoàn thành task.
+    penalty = 0
+    for a, b in precedences:
+         if time_finish_task.get(a, float('inf')) > time_finish_task.get(b, 0):
+            penalty += penalty_point
+        
+    return makespan + penalty
 
 
 if __name__ == "__main__":
