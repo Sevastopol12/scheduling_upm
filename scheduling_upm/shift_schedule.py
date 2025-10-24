@@ -23,6 +23,10 @@ def shift_schedule(machine_sequences, processing_time, setup_time, precedence,
             active_ops -= 1
 
         # 2. Tìm ops có thể bắt đầu
+        op_available_time = time # Tính thời điểm operator rảnh
+        if active_ops >= num_operators and running_ops:
+            op_available_time = running_ops[0][0]
+
         candidates = []
         for k, seq in pending.items():
             if not seq:
@@ -31,15 +35,14 @@ def shift_schedule(machine_sequences, processing_time, setup_time, precedence,
             # precedence check
             if any(pred not in completed for pred in precedence.get(op, [])):
                 continue
-            # machine available
-            if active_ops >= num_operators or time < machine_free_time[k]:
-                continue
             # compute earliest start
             prev = last_op[k]
             setup = 0
             if prev is not None:
                 setup = setup_time.get(prev, {}).get(op, {}).get(k, 0)
-            start = max(release_time.get(op, 0), machine_free_time[k]) + setup
+
+            machine_ready_time = machine_free_time[k] + setup
+            start = max(release_time.get(op, 0), machine_ready_time, op_available_time)
             candidates.append((start, op, k))
 
         if not candidates and not running_ops:
@@ -65,7 +68,6 @@ def shift_schedule(machine_sequences, processing_time, setup_time, precedence,
     schedule = {op: {'machine': k, 'start': op_start[op], 'end': op_end[op]}
                 for k in machine_sequences for op in op_start if op in machine_sequences[k]}
     return schedule
-
 
 def evaluate_schedule(schedule, due_date, weight):
     # Đánh giá Schedule đã xây dựng bằng cách tạo Cmax, Weighted Tardiness, Load imbalance
