@@ -12,89 +12,61 @@ def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, An
 
     Returns:
         tasks: dict: task_id -> {
-            "proc_times": time needed to perform this task on i'th machine: list[int],
-            Thời gian để thực hiện task này, khác nhau với mỗi máy
-
-            "resource": int,
-            lượng tài nguyên cần để thực hiện task
-
-            "weight": task importance: float
+            "proc_times": Thời gian để thực hiện task này, khác nhau với mỗi máy
+            "resource": lượng tài nguyên cần để thực hiện task
         }
-        setup: dict of (task, task) of len 2 -> setup_time when changing task, differences for each pair of tasks
-        Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
+        setup: dict of (task, task): Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
         VD: setup_time từ task a->b, được biểu diễn là (a,b) sẽ khác setup_time từ task a->c (a,c) và ngược lại
-
-        precedences: list of (task, task) denote that, say task a must be finished before task b starts
-        Thứ tự ưu tiên của từng task
-        VD: (a,b) có nghĩa là a bắt buộc phải được hoàn thành trước khi b được thực thi, xét trên toàn bộ máy
     """
-    tasks: Dict[str, Any] = {}
-    # Base processing for each task
-    base_proc = [random.randint(5, 30) for _ in range(n_tasks)]
 
+    # Generate tasks
+    tasks: Dict[int, Any] = {}
     for t in range(n_tasks):
-        times: List[int] = []
-
-        for _ in range(n_machines):
-            # Performance coefficient
-            modifier: float = random.choice([0.6, 0.8, 1.0, 1.2, 1.6])
-            times.append(max(1, int(base_proc[t] * modifier)))
-
+        times: List[int] = process_time_on_each_machine(n_machines=n_machines)
         resource: int = random.randint(0, 120)
-        weight: float = random.uniform(1.0, 3.0)
         tasks[t] = {
-            "proc_times": times,
+            "process_times": times,
             "resource": resource,
-            "weight": weight,  # Task's importance
         }
 
     # Sequence-dependent setup times between tasks
+    setup_time = generate_sequence_dependent_constraint(n_tasks=n_tasks)
+
+    return {
+        "n_tasks": n_tasks,
+        "n_machines": n_machines,
+        "tasks": tasks,
+        "setups": setup_time,
+    }
+
+
+def process_time_on_each_machine(n_machines: int) -> List[int]:
+    times: List[int] = []
+    for _ in range(n_machines):
+        # Performance coefficient
+        modifier: float = random.choice([0.6, 0.8, 1.0, 1.2, 1.6])
+        base_process_time: int = random.randint(5, 30)
+        times.append(max(1, int(base_process_time * modifier)))
+    return times
+
+
+def generate_sequence_dependent_constraint(n_tasks: int) -> Dict[Tuple[int, int], int]:
+    """
+    Khởi tạo mối quan hệ thứ tự của từng công việc.
+    Tham số mẫu {
+        (task_a, task_b): setup_time,
+        (task_a, task_c): setup_time,
+        ...
+    }
+    """
+
     setup_time = {}
     for task_a in range(n_tasks):
         for task_b in range(n_tasks):
             setup_time[(task_a, task_b)] = (
                 0 if task_a == task_b else random.randint(0, 10)
             )
-
-    return tasks, setup_time
-
-
-def generate_schedule(
-    tasks: Dict[str, Any], n_machines: int = 4
-) -> Dict[int, List[int]]:
-    """Perform Round-robin scheduling method to initialize schedule"""
-    schedule: Dict[int, List[int]] = {machine: [] for machine in range(n_machines)}
-
-    for task in tasks.keys():
-        schedule[task % n_machines].append(task)
-    return schedule
-
-
-def objective_function(
-    schedule: Dict[int, List[int]],
-    tasks: Dict[str, Any],
-    setups: Dict[Tuple[int, int], int],
-) -> Tuple:
-    """Objective: Minimize makespan"""
-    # Calculate total-process time of each machine. Accounts for setup time
-    machine_makespan: Dict[int, int] = {machine: 0 for machine in schedule.keys()}
-
-    for machine, task_sequence in schedule.items():
-        for idx in range(len(task_sequence)):
-            # task's process time
-            task = task_sequence[idx]
-            process_time = tasks[task]["proc_times"][machine]
-            # setup time when changing task
-            setup_time = (
-                0 if idx < 1 else setups[task_sequence[idx - 1], task_sequence[idx]]
-            )
-            machine_makespan[machine] += process_time + setup_time
-
-    makespan = max(
-        [total_process_time for total_process_time in machine_makespan.values()]
-    )
-
-    return makespan
+    return setup_time
 
 
 if __name__ == "__main__":
