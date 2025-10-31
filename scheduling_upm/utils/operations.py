@@ -73,7 +73,7 @@ def objective_function(
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
 
     # Makespan
-    makespan = sum(task_completion_milestones)
+    makespan = max(task_completion_milestones.values())
 
     # TODO
     # Xét thêm những khía cạnh khác, tính cost
