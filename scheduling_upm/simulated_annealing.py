@@ -17,12 +17,11 @@ def simulated_annealing(
 
     """Simulated Annealing"""
     history: List[Dict[str, Any]] = []
-    
+
     # Initial solution
-    candidate_schedule = initial_schedule(tasks=tasks, n_machines=n_machines)
-    current_schedule: Dict[int, List[int]] = candidate_schedule
+    current_schedule: Dict[int, List[int]] = initial_schedule(tasks=tasks, n_machines=n_machines)
     current_cost: int = objective_function(
-        schedule=candidate_schedule, tasks=tasks, setups=setups
+        schedule=current_schedule, tasks=tasks, setups=setups
     )
 
     best_schedule = copy.deepcopy(current_schedule)
@@ -31,7 +30,7 @@ def simulated_annealing(
     for iter in range(n_iteration):
         temperature: float = cooling_down(initial_temp=initial_temp, iteration=iter)
 
-        candidate_schedule = swap_task(schedule=candidate_schedule)
+        candidate_schedule = swap_task(schedule=current_schedule)
         candidate_cost = objective_function(
             schedule=candidate_schedule, tasks=tasks, setups=setups
         )
@@ -39,7 +38,7 @@ def simulated_annealing(
         acp: float = acceptance_probability(
             old_cost=best_cost, new_cost=candidate_cost, temperature=temperature
         )
-
+        
         if random.random() < acp:
             current_schedule = candidate_schedule
             current_cost = candidate_cost
@@ -49,7 +48,12 @@ def simulated_annealing(
             best_cost = candidate_cost
 
         history.append(
-            {"iteration": iter, "iter_cost": current_cost, "best_cost": best_cost}
+            {
+                "iteration": iter,
+                "iter_cost": current_cost,
+                "iter_schedule": current_schedule,
+                "best_cost": best_cost,
+            }
         )
 
         # early stop when temperature got too small
