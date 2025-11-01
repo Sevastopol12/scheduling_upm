@@ -88,7 +88,13 @@ def compute_base_milestones(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
 ):
+    # Lưu trữ thời gian hoàn thành của mỗi task
     task_completion_milestones: Dict[int, int] = {}
+    
+    # Lưu trữ các mốc thời gian của mỗi máy khi hoàn thành 1 task
+    machine_completion_milestone: Dict[int, int] = {
+        machine: 0 for machine in schedule.keys()
+    }
 
     for machine, sequence in schedule.items():
         for idx in range(len(sequence)):
@@ -97,6 +103,7 @@ def compute_base_milestones(
             process_time = tasks[task]["process_times"][machine]
             setup_time = 0 if idx < 1 else setups[sequence[idx - 1], sequence[idx]]
 
-            task_completion_milestones[task] = process_time + setup_time
+            machine_completion_milestone[machine] += process_time + setup_time
+            task_completion_milestones[task] = machine_completion_milestone[machine]
 
     return task_completion_milestones
