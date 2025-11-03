@@ -2,11 +2,11 @@ import math
 import random
 import copy
 from typing import Dict, Any, Tuple, List
-from .environment import objective_function, generate_schedule
+from .utils.operations import initial_schedule, swap_task, objective_function
 
 
 def simulated_annealing(
-    tasks: Dict[str, Any],
+    tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
     n_machines: int,
     n_iteration: int = 1000,
@@ -16,12 +16,12 @@ def simulated_annealing(
         return []
 
     """Simulated Annealing"""
-    # Initial solution
     history: List[Dict[str, Any]] = []
-    candidate_schedule = generate_schedule(tasks=tasks, n_machines=n_machines)
-    current_schedule: Dict[int, List[int]] = candidate_schedule
+
+    # Initial solution
+    current_schedule: Dict[int, List[int]] = initial_schedule(tasks=tasks, n_machines=n_machines)
     current_cost: int = objective_function(
-        schedule=candidate_schedule, tasks=tasks, setups=setups
+        schedule=current_schedule, tasks=tasks, setups=setups
     )
 
     best_schedule = copy.deepcopy(current_schedule)
@@ -30,7 +30,7 @@ def simulated_annealing(
     for iter in range(n_iteration):
         temperature: float = cooling_down(initial_temp=initial_temp, iteration=iter)
 
-        candidate_schedule = adjust_schedule(schedule=candidate_schedule)
+        candidate_schedule = swap_task(schedule=current_schedule)
         candidate_cost = objective_function(
             schedule=candidate_schedule, tasks=tasks, setups=setups
         )
@@ -38,7 +38,7 @@ def simulated_annealing(
         acp: float = acceptance_probability(
             old_cost=best_cost, new_cost=candidate_cost, temperature=temperature
         )
-
+        
         if random.random() < acp:
             current_schedule = candidate_schedule
             current_cost = candidate_cost
@@ -48,7 +48,12 @@ def simulated_annealing(
             best_cost = candidate_cost
 
         history.append(
-            {"iteration": iter, "iter_cost": current_cost, "best_cost": best_cost}
+            {
+                "iteration": iter,
+                "iter_cost": current_cost,
+                "iter_schedule": current_schedule,
+                "best_cost": best_cost,
+            }
         )
 
         # early stop when temperature got too small
@@ -56,11 +61,6 @@ def simulated_annealing(
             break
 
     return best_schedule, best_cost, history
-
-
-def adjust_schedule(schedule):
-    """Adjustment in schedule, aims to minimize makespan"""
-    return schedule
 
 
 def acceptance_probability(old_cost, new_cost, temperature):
