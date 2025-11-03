@@ -5,7 +5,7 @@ from typing import List, Tuple, Dict, Any
 
 def swap_task(schedule) -> Dict[int, List[int]]:
     """Adjustment in schedule, aims to minimize makespan"""
-    """Adjustment in schedule, aims to minimize makespan"""
+
     new_schedule = copy.deepcopy(schedule)
     machines: List[int] = list(new_schedule.keys())
     probability: float = random.random()
@@ -58,6 +58,7 @@ def objective_function(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
+    machine_resources: Dict[int, int] = None, #thêm machine_resource
 ) -> Tuple:
     """Objective: Minimize makespan"""
 
@@ -71,6 +72,13 @@ def objective_function(
 
     # TODO
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
+    if machine_resources:
+        task_completion_milestones = apply_resource_constraints(
+            schedule=schedule,
+            tasks=tasks,
+            task_completion_milestones=task_completion_milestones,
+            machine_resources=machine_resources
+        )
 
     # Makespan
     makespan = max(task_completion_milestones.values())
@@ -107,3 +115,61 @@ def compute_base_milestones(
             task_completion_milestones[task] = machine_completion_milestone[machine]
 
     return task_completion_milestones
+
+def apply_resource_constraints(
+    schedule: Dict[int, List[int]],
+    tasks: Dict[int, Any],
+    task_completion_milestones: Dict[int, int],
+    machine_resources: Dict[int, int],
+) -> Dict[int, int]:
+    
+
+    # Sao chép milestone gốc (thời gian hoàn thành ban đầu)
+    adjusted = copy.deepcopy(task_completion_milestones)
+
+    # Lưu trạng thái tài nguyên và thời gian của từng máy
+    machine_available = {m: machine_resources[m] for m in schedule.keys()}
+    machine_time = {m: 0 for m in schedule.keys()}
+
+    # Duyệt qua từng máy trong lịch
+    for machine, sequence in schedule.items():
+        for task in sequence:
+            task_resource = tasks[task]["resource"]
+            process_time = tasks[task]["process_times"][machine]
+
+            # Tính tổng tài nguyên còn trống trong hệ thống
+            total_available = sum(machine_available.values())
+
+            # Nếu chưa đủ tài nguyên, đợi máy có task hoàn thành sớm nhất
+            if total_available < task_resource:
+                # Tìm thời điểm sớm nhất mà 1 task khác đã xong
+                min_finish = min(adjusted.values()) if adjusted else 0
+
+                # Reset lại tài nguyên của các máy (máy rảnh)
+                for m in machine_available:
+                    machine_time[m] = max(machine_time[m], min_finish)
+                    machine_available[m] = machine_resources[m]
+
+            # Bắt đầu phân bổ tài nguyên cho task này
+            remaining = task_resource
+            for m in machine_available:
+                if remaining <= 0:
+                    break
+                alloc = min(machine_available[m], remaining)
+                machine_available[m] -= alloc
+                remaining -= alloc
+
+            # Khi đủ resource → bắt đầu xử lý task
+            start_time = max(machine_time.values())
+            finish_time = start_time + process_time
+            adjusted[task] = finish_time
+
+            # Sau khi xong, hoàn trả tài nguyên
+            for m in machine_available:
+                machine_available[m] = machine_resources[m]
+
+            # Cập nhật thời gian máy
+            for m in machine_time:
+                machine_time[m] = finish_time
+
+    return adjusted

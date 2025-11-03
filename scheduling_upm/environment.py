@@ -32,11 +32,13 @@ def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, An
     # Sequence-dependent setup times between tasks
     setup_time = generate_sequence_dependent_constraint(n_tasks=n_tasks)
 
+    resources = generate_resource_constraints(n_machines=n_machines)
     return {
         "n_tasks": n_tasks,
         "n_machines": n_machines,
         "tasks": tasks,
         "setups": setup_time,
+        "resources": resources,
     }
 
 
@@ -67,6 +69,12 @@ def generate_sequence_dependent_constraint(n_tasks: int) -> Dict[Tuple[int, int]
                 0 if task_a == task_b else random.randint(0, 10)
             )
     return setup_time
+
+def generate_resource_constraints(n_machines: int, max_resource: int = 120) -> Dict[int, int]:
+    machine_resources = {}
+    for machine in range(n_machines):
+        machine_resources[machine] = random.randint(80, max_resource)
+    return machine_resources
 
 
 if __name__ == "__main__":
