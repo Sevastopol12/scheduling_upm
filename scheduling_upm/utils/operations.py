@@ -58,6 +58,7 @@ def objective_function(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
+    precedences: Dict [int, List[int]]
 ) -> Tuple:
     """Objective: Minimize makespan"""
 
@@ -69,6 +70,26 @@ def objective_function(
     # TODO
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
 
+    # hướng làm ở đây thì t sẽ nạp cái ràng buộc từ bên enviroment trước
+    #sau đó t sẽ duyệt hết các cái quan hệ có thể được sinh ra để xếp xếp lại thứ tự các task
+    # rồi cập nhập thời gian hoàn thành khi áp dụng ràng buộc
+    # à t có thắc mắc là t tưởng k tài tuple nx chớ, do ở trong hàm t vẫn thấy sài Tuple ở setup á phúc
+
+    actual_start_times = {task: 0 for task in task_completion_milestones.keys()}
+    actual_completion_times = copy.deepcopy(task_completion_milestones)
+
+    changed = True
+    while changed:
+        changed = False
+        for pre, posts in precedences.items():
+            for post in posts:
+                pre_finish = actual_completion_times[pre]
+                post_proc_time = tasks[post]["process_times"][0]  
+                if actual_start_times[post] < pre_finish:
+                    actual_start_times[post] = pre_finish
+                    actual_completion_times[post] = actual_start_times[post] + post_proc_time
+                    changed = True
+    task_completion_milestones = actual_completion_times
     # TODO
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
 
