@@ -8,9 +8,11 @@ from .utils.operations import initial_schedule, swap_task, objective_function
 def simulated_annealing(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
+    total_resource: int,
     n_machines: int,
     n_iteration: int = 1000,
     initial_temp: float = 1000.0,
+    
 ):
     if not tasks or not setups:
         return []
@@ -21,7 +23,7 @@ def simulated_annealing(
     # Initial solution
     current_schedule: Dict[int, List[int]] = initial_schedule(tasks=tasks, n_machines=n_machines)
     current_cost: int = objective_function(
-        schedule=current_schedule, tasks=tasks, setups=setups
+        schedule=current_schedule, tasks=tasks, setups=setups, total_resource= total_resource
     )
 
     best_schedule = copy.deepcopy(current_schedule)
@@ -32,7 +34,7 @@ def simulated_annealing(
 
         candidate_schedule = swap_task(schedule=current_schedule)
         candidate_cost = objective_function(
-            schedule=candidate_schedule, tasks=tasks, setups=setups
+            schedule=candidate_schedule, tasks=tasks, setups=setups, total_resource= total_resource
         )
 
         acp: float = acceptance_probability(

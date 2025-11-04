@@ -58,7 +58,7 @@ def objective_function(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
-    machine_resources: Dict[int, int] = None, #thêm machine_resource
+    total_resource: int, #thêm total_resource
 ) -> Tuple:
     """Objective: Minimize makespan"""
 
@@ -72,14 +72,16 @@ def objective_function(
 
     # TODO
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
-    if machine_resources:
-        task_completion_milestones = apply_resource_constraints(
-            schedule=schedule,
-            tasks=tasks,
-            task_completion_milestones=task_completion_milestones,
-            machine_resources=machine_resources
-        )
-
+    
+    applied_schedule = apply_resource_constraint(schedule, tasks, setups, total_resource) #áp dụng ràng buộc resource và tính lại makespan
+    makespan = 0
+    for m in applied_schedule.keys():
+        if applied_schedule[m]:
+            last_end = applied_schedule[m][-1]["end"]
+            makespan = max(makespan, last_end)
+    return makespan
+    # Áp dụng ràng buộc resource thực tế
+  
     # Makespan
     makespan = max(task_completion_milestones.values())
 
@@ -116,60 +118,49 @@ def compute_base_milestones(
 
     return task_completion_milestones
 
-def apply_resource_constraints(
-    schedule: Dict[int, List[int]],
-    tasks: Dict[int, Any],
-    task_completion_milestones: Dict[int, int],
-    machine_resources: Dict[int, int],
-) -> Dict[int, int]:
-    
+def apply_resource_constraint(schedule: Dict[int, List[int]], 
+                              tasks: Dict[int, Any],
+                              setups: Dict[Tuple[int, int], int],
+                              total_resource: int) -> Dict[int, List[Dict[str, Any]]]:
 
-    # Sao chép milestone gốc (thời gian hoàn thành ban đầu)
-    adjusted = copy.deepcopy(task_completion_milestones)
+    pool_resource = total_resource #pool resource là tài nguyên còn lại trong pool mà ban đầu là tổng resource
+    running_tasks: List[Dict[str, Any]] = [] # danh sách các task đang chạy có 
+    current_time: Dict[int, int] = {m: 0 for m in schedule.keys()} #Thời gian hiện tại của từng máy
+    final_schedule: Dict[int, List[Dict[str, Any]]] = {m: [] for m in schedule.keys()} #Lịch trình cuối cùng sau khi áp dụng ràng buộc tài nguyên
 
-    # Lưu trạng thái tài nguyên và thời gian của từng máy
-    machine_available = {m: machine_resources[m] for m in schedule.keys()}
-    machine_time = {m: 0 for m in schedule.keys()}
+    for m in schedule.keys(): # duyệt qua từng máy
+        for idx, task_id in enumerate(schedule[m]): # duyệt qua từng task trên máy m
+            needed_resource = tasks[task_id]["resource"] #lấy resource cần thiết để thực hiện task
+            proc_time = tasks[task_id]["process_times"][m] #lấy thời gian xử lý của task trên máy m
+            setup_time = 0 if idx == 0 else setups[(schedule[m][idx - 1], task_id)] #
 
-    # Duyệt qua từng máy trong lịch
-    for machine, sequence in schedule.items():
-        for task in sequence:
-            task_resource = tasks[task]["resource"]
-            process_time = tasks[task]["process_times"][machine]
+            # Đợi đến khi có đủ resource trong pool
+            while needed_resource > pool_resource:
+                # tìm task kết thúc sớm nhất
+                min_end = min([r["end"] for r in running_tasks]) #task vừa hoàn thành
+                finished = [r for r in running_tasks if r["end"] == min_end]  
+                for f in finished:
+                    pool_resource += f["resource"] #trả resource về pool
+                    running_tasks.remove(f) #xóa khỏi running tasks
+                current_time[m] = max(current_time[m], min_end) #cập nhật thời gian hiện tại của máy m
 
-            # Tính tổng tài nguyên còn trống trong hệ thống
-            total_available = sum(machine_available.values())
+            # Khi có đủ resource -> lấy resource từ pool
+            pool_resource -= needed_resource
+            start_time = current_time[m] #task sẽ bắt đầu ở thời gian hiện tại của máy m
+            end_time = start_time + proc_time + setup_time
 
-            # Nếu chưa đủ tài nguyên, đợi máy có task hoàn thành sớm nhất
-            if total_available < task_resource:
-                # Tìm thời điểm sớm nhất mà 1 task khác đã xong
-                min_finish = min(adjusted.values()) if adjusted else 0
+            task_info = {
+                "task_id": task_id,
+                "machine": m,
+                "start": start_time,
+                "end": end_time,
+                "resource": needed_resource
+            }#ghi lại task
+            
+            running_tasks.append(task_info) #để ghi các task chiếm resource và giải phóng khi current time = end time
+            current_time[m] = end_time
+            final_schedule[m].append(task_info)
 
-                # Reset lại tài nguyên của các máy (máy rảnh)
-                for m in machine_available:
-                    machine_time[m] = max(machine_time[m], min_finish)
-                    machine_available[m] = machine_resources[m]
+    return final_schedule
 
-            # Bắt đầu phân bổ tài nguyên cho task này
-            remaining = task_resource
-            for m in machine_available:
-                if remaining <= 0:
-                    break
-                alloc = min(machine_available[m], remaining)
-                machine_available[m] -= alloc
-                remaining -= alloc
 
-            # Khi đủ resource → bắt đầu xử lý task
-            start_time = max(machine_time.values())
-            finish_time = start_time + process_time
-            adjusted[task] = finish_time
-
-            # Sau khi xong, hoàn trả tài nguyên
-            for m in machine_available:
-                machine_available[m] = machine_resources[m]
-
-            # Cập nhật thời gian máy
-            for m in machine_time:
-                machine_time[m] = finish_time
-
-    return adjusted
