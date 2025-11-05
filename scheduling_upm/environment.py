@@ -2,7 +2,9 @@ from typing import List, Dict, Any, Tuple
 import random
 
 
-def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, Any]:
+def generate_environment(
+    n_tasks: int = 15, n_machines: int = 4, seed=None
+) -> Dict[str, Any]:
     """Generate tasks, setup time of each task and precedence
        Khởi tạo các task, thời gian setup và thứ tự ưu tiên cho từng task
 
@@ -18,7 +20,8 @@ def generate_environment(n_tasks: int = 15, n_machines: int = 4) -> Dict[str, An
         setup: dict of (task, task): Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
         VD: setup_time từ task a->b, được biểu diễn là (a,b) sẽ khác setup_time từ task a->c (a,c) và ngược lại
     """
-
+    if seed is not None:
+        random.seed(seed)
     # Generate tasks
     tasks: Dict[int, Any] = {}
     for t in range(n_tasks):

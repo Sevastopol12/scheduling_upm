@@ -2,7 +2,7 @@ import math
 import random
 import copy
 from typing import Dict, Any, Tuple, List
-from .utils.operations import initial_schedule, swap_task, objective_function
+from .utils.operations import generate_schedule, rescheduling, objective_function
 
 
 def simulated_annealing(
@@ -19,18 +19,27 @@ def simulated_annealing(
     history: List[Dict[str, Any]] = []
 
     # Initial solution
-    current_schedule: Dict[int, List[int]] = initial_schedule(tasks=tasks, n_machines=n_machines)
+    current_schedule: Dict[int, List[int]] = generate_schedule(
+        tasks=tasks, n_machines=n_machines
+    )
     current_cost: int = objective_function(
         schedule=current_schedule, tasks=tasks, setups=setups
     )
 
-    best_schedule = copy.deepcopy(current_schedule)
+    best_schedule = {
+        machine: sequence for machine, sequence in current_schedule.items()
+    }
     best_cost = current_cost
 
     for iter in range(n_iteration):
         temperature: float = cooling_down(initial_temp=initial_temp, iteration=iter)
 
-        candidate_schedule = swap_task(schedule=current_schedule)
+        candidate_schedule = rescheduling(
+            tasks=tasks,
+            schedule=current_schedule,
+            current_iteration=iter,
+            total_iteration=n_iteration,
+        )
         candidate_cost = objective_function(
             schedule=candidate_schedule, tasks=tasks, setups=setups
         )
@@ -38,7 +47,7 @@ def simulated_annealing(
         acp: float = acceptance_probability(
             old_cost=best_cost, new_cost=candidate_cost, temperature=temperature
         )
-        
+
         if random.random() < acp:
             current_schedule = candidate_schedule
             current_cost = candidate_cost
