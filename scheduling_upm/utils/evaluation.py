@@ -42,7 +42,7 @@ def compute_makespan(machine_milestones: Dict[int, np.array]) -> int:
         milestones.max() if milestones.size > 0 else 0
         for milestones in machine_milestones.values()
     ]
-    
+
     return max(machine_completion_time)
 
 
@@ -70,6 +70,7 @@ def record_milestones(
 
             # Start time
             current_runtime: int = 0 if idx < 1 else machine_milestones[machine][-1]
+
             # Update new complete time
             machine_milestones[machine].append(
                 current_runtime + process_time + setup_time
@@ -82,6 +83,7 @@ def record_milestones(
                 "process_machine": machine,
                 "idx": idx,
             }
+
     # Array transformation
     machine_milestones = {
         machine: np.array([sequence])
@@ -113,12 +115,14 @@ def apply_precedences_constraint(
 
             if precedence_complete_time > task_start_time:
                 delay_time: int = precedence_complete_time - task_start_time
+
                 # Get task position
                 affected_machine_position: List[Tuple] = (
                     task_milestones[task]["process_machine"],
                     task_milestones[task]["idx"],
                 )
-                # Adds up delay time
+
+                # Update the machine, position where the delay must be held
                 current_delay = machine_delay_time.get(affected_machine_position, 0)
                 machine_delay_time[affected_machine_position] = (
                     current_delay + delay_time
@@ -128,7 +132,6 @@ def apply_precedences_constraint(
     for position, delay_time in machine_delay_time.items():
         # Get machine & affected index
         machine, affected_idx = position
-
         new_machine_milestones[machine][affected_idx:] += delay_time
 
         for task in schedule[machine][affected_idx:]:
