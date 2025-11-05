@@ -65,7 +65,7 @@ def record_milestones(
             current_runtime: int = 0 if idx < 1 else machine_milestones[machine]
 
             # Update new complete time
-            machine_milestones[machine] += current_runtime + process_time + setup_time
+            machine_milestones[machine] += process_time + setup_time
 
             # Store task info
             task_milestones[task] = {
