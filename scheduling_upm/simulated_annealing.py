@@ -1,14 +1,16 @@
 import math
 import random
 import copy
-from typing import Dict, Any, Tuple, List
-from .utils.operations import generate_schedule, rescheduling, objective_function
+from typing import Dict, Any, Tuple, List, Set
+from .utils.operations import generate_schedule, rescheduling
+from .utils.evaluation import objective_function
 
 
 def simulated_annealing(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
     n_machines: int,
+    precedences: Dict[int, Set] = None,
     n_iteration: int = 1000,
     initial_temp: float = 1000.0,
 ):
@@ -23,7 +25,7 @@ def simulated_annealing(
         tasks=tasks, n_machines=n_machines
     )
     current_cost: int = objective_function(
-        schedule=current_schedule, tasks=tasks, setups=setups
+        schedule=current_schedule, tasks=tasks, setups=setups, precedences=precedences
     )
 
     best_schedule = {
@@ -61,6 +63,7 @@ def simulated_annealing(
                 "iteration": iter,
                 "iter_cost": current_cost,
                 "iter_schedule": current_schedule,
+                "best_schedule": best_schedule,
                 "best_cost": best_cost,
             }
         )

@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Set
 import random
 
 
@@ -34,12 +34,14 @@ def generate_environment(
 
     # Sequence-dependent setup times between tasks
     setup_time = generate_sequence_dependent_constraint(n_tasks=n_tasks)
+    precedences = generate_precedences_constraint(n_tasks=n_tasks)
 
     return {
         "n_tasks": n_tasks,
         "n_machines": n_machines,
         "tasks": tasks,
         "setups": setup_time,
+        "precedences": precedences
     }
 
 
@@ -62,7 +64,6 @@ def generate_sequence_dependent_constraint(n_tasks: int) -> Dict[Tuple[int, int]
         ...
     }
     """
-
     setup_time = {}
     for task_a in range(n_tasks):
         for task_b in range(n_tasks):
@@ -71,6 +72,37 @@ def generate_sequence_dependent_constraint(n_tasks: int) -> Dict[Tuple[int, int]
             )
     return setup_time
 
+
+def generate_precedences_constraint(n_tasks: int):
+    """Generate precedences constraint
+
+    Args:
+        n_tasks (int): number of tasks
+    Return:
+        precedences (Dict): task_a and its precedence:
+        sample: {
+            task_a: Set[task_b, task_c,...]
+        }
+    """
+    n_precedences = random.randint(1, int(n_tasks * 0.5))
+    samples = range(n_tasks)
+    precedences: Dict[int, Set[int]] = {}
+
+    for _ in range(n_precedences):
+        task_a, task_a_precedence = random.sample(samples, 2)
+
+        # If task_a's precedence were including it as its precedence, move on to the next iteration
+        if (
+            precedences.get(task_a_precedence, None) is not None
+            and task_a in precedences[task_a_precedence]
+        ):
+            continue
+
+        if precedences.get(task_a, None) is None:
+            precedences[task_a] = set()
+        precedences[task_a].add(task_a_precedence)
+        
+    return precedences
 
 if __name__ == "__main__":
     generate_environment()
