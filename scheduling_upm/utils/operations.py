@@ -58,7 +58,8 @@ def objective_function(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
-    precedences: Dict [int, List[int]]
+    precedences: Dict[int, Any],
+   
 ) -> Tuple:
     """Objective: Minimize makespan"""
 
@@ -70,37 +71,66 @@ def objective_function(
     # TODO
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
 
-    # hướng làm ở đây thì t sẽ nạp cái ràng buộc từ bên enviroment trước
-    #sau đó t sẽ duyệt hết các cái quan hệ có thể được sinh ra để xếp xếp lại thứ tự các task
-    # rồi cập nhập thời gian hoàn thành khi áp dụng ràng buộc
-    # à t có thắc mắc là t tưởng k tài tuple nx chớ, do ở trong hàm t vẫn thấy sài Tuple ở setup á phúc
-
-    actual_start_times = {task: 0 for task in task_completion_milestones.keys()}
+    #Đầu tiên t sẽ check các máy đang làm những task nào, là cơ sở cho pre vs post để check ràng buộc
+    # t cũng tạo 1 bản chép, và bản chép này là để t ghi lại thời gian thực tế nó làm, nhưng vẫn có bản cũ giữ lại thời gian làm
+    # ví dụ task 1 2s, task 2 3s, thì sau khi xong t vẫn có dữ liệu là task 1 2s, task 2 3s và dữ liệu làm thực tế là task 1 2s task 2 5s.
+    task_to_machine = {task: m for m, seq in schedule.items() for task in seq}
     actual_completion_times = copy.deepcopy(task_completion_milestones)
+    
+    #chọn phương án pen nếu vi phạm
+    PENALTY_VALUE = 10**6
+    penalty = 0
 
-    changed = True
-    while changed:
-        changed = False
-        for pre, posts in precedences.items():
-            for post in posts:
-                pre_finish = actual_completion_times[pre]
-                post_proc_time = tasks[post]["process_times"][0]  
-                if actual_start_times[post] < pre_finish:
-                    actual_start_times[post] = pre_finish
-                    actual_completion_times[post] = actual_start_times[post] + post_proc_time
-                    changed = True
-    task_completion_milestones = actual_completion_times
+    #xong phần chuẩn bị r, h t vô thì t sẽ check precedence
+    # t giải quyết 2 vấn đề: nếu task k cs ràng buộc, nếu các task trên cùng máy - khác máy
+    #nếu cùng, thì cứ cộng bthg, nhưng nếu trái ràng buộc thì cũng cộng bthg r cộng thêm pen
+    #nếu khác, t phải cho nó chờ
+      for pre, posts in precedences.items():
+        for post in posts:
+            if pre not in task_to_machine or post not in task_to_machine:
+                continue
+
+            machine_pre = task_to_machine[pre]
+            machine_post = task_to_machine[post]
+
+            if machine_pre == machine_post:
+                seq = schedule[machine_pre]
+                idx_pre = seq.index(pre)
+                idx_post = seq.index(post)
+
+                if idx_pre > idx_post:
+                    penalty += PENALTY_VALUE
+
+            else:
+                finish_pre = actual_completion_times[pre]
+
+                seq_post = schedule[machine_post]
+                idx_post = seq_post.index(post)
+
+                if idx_post == 0:
+                    start_post = 0
+                else:
+                    prev_task = seq_post[idx_post - 1]
+                    setup_time = setups.get((prev_task, post), 0)
+                    start_post = actual_completion_times[prev_task] + setup_time
+
+                if start_post < finish_pre:
+                    delay = finish_pre - start_post
+                    for k in range(idx_post, len(seq_post)):
+                        cur_task = seq_post[k]
+                        actual_completion_times[cur_task] += delay
     # TODO
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
 
     # Makespan
-    makespan = max(task_completion_milestones.values())
+    makespan = max(actual_completion_times.values()) #lấy kết quả của bản copy
+
 
     # TODO
     # Xét thêm những khía cạnh khác, tính cost
 
     # Cost
-    cost = makespan
+    cost = makespan + penalty
     return cost
 
 
