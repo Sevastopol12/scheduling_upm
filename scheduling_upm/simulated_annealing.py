@@ -25,7 +25,7 @@ def simulated_annealing(
         tasks=tasks, n_machines=n_machines
     )
     current_cost: int = objective_function(
-        schedule=current_schedule, tasks=tasks, setups=setups
+        schedule=current_schedule, tasks=tasks, setups=setups, precedences=precedences
     )
 
     best_schedule = {

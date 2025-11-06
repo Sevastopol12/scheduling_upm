@@ -8,8 +8,13 @@ n_machines = environment.pop("n_machines", 2)
 n_tasks = environment.pop("n_tasks", 4)
 tasks = environment.pop("tasks", 4)
 setups = environment.pop("setups", {})
+precedences = environment.pop("precedences", {})
 
 schedule = generate_schedule(tasks=tasks, n_machines=n_machines)
 cost = objective_function(schedule=schedule, tasks=tasks, setups=setups)
 
-print(simulated_annealing(tasks=tasks, setups=setups, n_machines=n_machines))
+print(
+    simulated_annealing(
+        tasks=tasks, setups=setups, n_machines=n_machines, precedences=precedences
+    )
+)
