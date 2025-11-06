@@ -1,7 +1,7 @@
 import math
 import random
 import copy
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Set
 from .utils.operations import generate_schedule, rescheduling, objective_function
 
 
@@ -11,6 +11,8 @@ def simulated_annealing(
     n_machines: int,
     n_iteration: int = 1000,
     initial_temp: float = 1000.0,
+    precedences: Dict[int, Set[int]]=None,
+    resource=None
 ):
     if not tasks or not setups:
         return []

@@ -16,24 +16,42 @@ def rescheduling(
     # Keep track of iteration progess, affect adjusting behavior
     progress: float = current_iteration / total_iteration
 
-    if probability < 0.7 * (1 - progress):
+    if probability < 0.4 * (1 - progress):
         # Early stage operations
         operation_pool: List[Tuple[callable, Dict]] = [
             (inter_machine_swap, {"schedule": schedule}),
             (random_move, {"schedule": schedule}),
-            (shuffle_machine, {"schedule": schedule}),
+            (
+                shuffle_machine,
+                {
+                    "schedule": schedule,
+                    "n_machines": random.randrange(1, len(schedule.keys())),
+                },
+            ),
             (generate_schedule, {"tasks": tasks, "n_machines": len(schedule.keys())}),
         ]
-    else:
+    elif probability < 0.7:
         # Mid stage operations
         operation_pool: List[Tuple[callable, Dict]] = [
             (inter_machine_swap, {"schedule": schedule}),
+            (random_move, {"schedule": schedule}),
+            (intra_machine_swap, {"schedule": schedule}),
+            (critical_task_move, {"schedule": schedule, "tasks": tasks}),
+        ]
+    else:
+        # Late stage operations
+        operation_pool: List[Tuple[callable, Dict]] = [
+            (
+                inter_machine_swap,
+                {"schedule": schedule, "tasks": tasks, "strategy": "longest"},
+            ),
             (intra_machine_swap, {"schedule": schedule}),
             (critical_task_move, {"schedule": schedule, "tasks": tasks}),
         ]
 
     operation, kwargs = random.choice(operation_pool)
     new_schedule = operation(**kwargs)
+
     # Precedence constraint: Repair schedule's if violated
     # TODO
 
@@ -41,26 +59,53 @@ def rescheduling(
 
 
 def random_move(schedule: Dict[int, List[Any]]) -> Dict[int, List[Any]]:
-    """Early stage. Move a task from one machine to another"""
+    """Early-Mid stage. Move a task from one machine to another"""
     machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
-    if schedule[machine_a]:
-        job_idx = random.randrange(len(schedule[machine_a]))
-        task = schedule[machine_a].pop(job_idx)
+    if len(schedule[machine_a]) < 1:
+        return schedule
+    task_idx = random.randrange(len(schedule[machine_a]))
+    task = schedule[machine_a].pop(task_idx)
 
-        pos = random.randrange(len(schedule[machine_b]) + 1)
-        schedule[machine_b].insert(pos, task)
+    position = (
+        random.randrange(len(schedule[machine_b]))
+        if len(schedule[machine_b]) > 0
+        else 0
+    )
+    schedule[machine_b].insert(position, task)
 
     return schedule
 
 
-def inter_machine_swap(schedule: Dict[int, List[int]]):
+def inter_machine_swap(
+    schedule: Dict[int, List[int]],
+    tasks: Dict[int, Any] = None,
+    strategy: str = "random",
+):
     """
-    Early stage. Swap tasks between different machines:
+    Early-Late stage. Swap tasks between different machines. Randomly or select longest task
+    Args:
+         strategy: ["random", "longest"]
+
     """
     machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
-    if schedule[machine_a] and schedule[machine_b]:
-        task_a = random.randrange(len(schedule[machine_a]))
-        task_b = random.randrange(len(schedule[machine_b]))
+    if len(schedule[machine_a]) > 0 and len(schedule[machine_b]) > 0:
+        if strategy == "random":
+            task_a = random.randrange(len(schedule[machine_a]))
+            task_b = random.randrange(len(schedule[machine_b]))
+
+        elif strategy == "longest":
+            task_a = max(
+                range(len(schedule[machine_a])),
+                key=lambda task_idx: tasks[schedule[machine_a][task_idx]][
+                    "process_times"
+                ][machine_a],
+            )
+            task_b = max(
+                range(len(schedule[machine_b])),
+                key=lambda task_idx: tasks[schedule[machine_b][task_idx]][
+                    "process_times"
+                ][machine_b],
+            )
 
         schedule[machine_a][task_a], schedule[machine_b][task_b] = (
             schedule[machine_b][task_b],
@@ -83,10 +128,14 @@ def generate_schedule(
     return schedule
 
 
-def shuffle_machine(schedule: Dict[int, List[Any]]) -> Dict[int, List[Any]]:
+def shuffle_machine(
+    schedule: Dict[int, List[Any]], n_machines: int = 1
+) -> Dict[int, List[Any]]:
     """Early stage. Shuffle task order on random machine"""
-    machine = random.choice(list(schedule.keys()))
-    random.shuffle(schedule[machine])
+    machines = random.sample(list(schedule.keys()), n_machines)
+    for machine in machines:
+        random.shuffle(schedule[machine])
+
     return schedule
 
 
@@ -117,7 +166,11 @@ def critical_task_move(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
     )
     task = schedule[machine_a].pop(longest_task_idx)
     # insert near best position
-    insert_position: int = random.randrange(len(schedule[machine_b]) + 1)
+    insert_position: int = (
+        random.randrange(len(schedule[machine_b]))
+        if len(schedule[machine_b]) > 0
+        else 0
+    )
     schedule[machine_b].insert(insert_position, task)
 
     return schedule
