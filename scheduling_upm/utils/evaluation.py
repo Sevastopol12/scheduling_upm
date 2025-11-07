@@ -6,7 +6,7 @@ def objective_function(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
     precedences: Dict[int, Set[int]] = None,
-) -> Tuple:
+) -> int:
     """Objective: Minimize makespan"""
     # Compute milestones of task's completion time .Accounts for setups
     task_milestones = record_milestones(schedule=schedule, tasks=tasks, setups=setups)
@@ -34,7 +34,9 @@ def objective_function(
 
 
 def compute_makespan(task_milestones: Dict[int, int]) -> int:
-    task_complete_time = [task_milestones[task]["complete_time"] for task in task_milestones.keys()]
+    task_complete_time = [
+        task_milestones[task]["complete_time"] for task in task_milestones.keys()
+    ]
     return max(task_complete_time)
 
 
