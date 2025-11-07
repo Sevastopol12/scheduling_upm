@@ -1,7 +1,5 @@
-from scheduling_upm.environment import generate_environment
-from scheduling_upm.utils.operations import generate_schedule
-from scheduling_upm.utils.evaluation import objective_function
-from scheduling_upm.simulated_annealing import simulated_annealing
+from scheduling_upm.utils.environment import generate_environment
+from scheduling_upm.simulated_annealing import SimulatedAnnealing
 
 environment = generate_environment(n_tasks=4, n_machines=2, seed=2503)
 
@@ -11,11 +9,5 @@ tasks = environment.pop("tasks", 4)
 setups = environment.pop("setups", {})
 precedences = environment.pop("precedences", {})
 
-schedule = generate_schedule(tasks=tasks, n_machines=n_machines)
-cost = objective_function(schedule=schedule, tasks=tasks, setups=setups)
-
-print(
-    simulated_annealing(
-        tasks=tasks, setups=setups, n_machines=n_machines, precedences=precedences
-    )
-)
+solution, history = SimulatedAnnealing(tasks=tasks, setups=setups, n_machines=n_machines, precedences=None, n_iterations=1000).optimize()
+best_schedule, best_cost = solution.schedule, solution.cost
