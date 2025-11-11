@@ -13,7 +13,7 @@ def objective_function(
 
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
     if precedences is not None:
-        task_milestones = apply_precedences_constraint(
+        task_milestones, machine_total_delay = apply_precedences_constraint(
             schedule=schedule,
             task_milestones=task_milestones,
             precedences=precedences,
@@ -70,7 +70,8 @@ def record_milestones(
 
             # Store task info
             task_milestones[task] = {
-                "start_time": current_runtime + setup_time,
+                "start_setup": current_runtime,
+                "start_process": current_runtime + setup_time,
                 "complete_time": machine_milestones[machine],
                 "process_machine": machine,
                 "idx": idx,
@@ -84,7 +85,7 @@ def apply_precedences_constraint(
     schedule: Dict[int, List[int]],
     task_milestones: Dict[int, int],
     precedences: Dict[int, Set[int]],
-) -> Dict[int, int]:
+) -> Tuple[Dict[int, int], Dict[int, int]]:
     # Copy
     new_task_milestones = task_milestones
 
@@ -94,13 +95,13 @@ def apply_precedences_constraint(
     # Locate precedence violation and record
     for task, sequence in precedences.items():
         for precedence_task in sequence:
-            task_start_time = new_task_milestones[task]["start_time"]
+            task_start_process = new_task_milestones[task]["start_process"]
             precedence_complete_time = new_task_milestones[precedence_task][
                 "complete_time"
             ]
 
-            if precedence_complete_time > task_start_time:
-                delay_time: int = precedence_complete_time - task_start_time
+            if precedence_complete_time > task_start_process:
+                delay_time: int = precedence_complete_time - task_start_process
 
                 # Get task position
                 position: List[Tuple] = (
@@ -118,8 +119,7 @@ def apply_precedences_constraint(
         machine, idx = position
 
         for task in schedule[machine][idx:]:
-            task_milestones[task]["start_time"] += delay_time
+            task_milestones[task]["start_process"] += delay_time
             task_milestones[task]["complete_time"] += delay_time
 
-    del machine_delay_time
-    return new_task_milestones
+    return new_task_milestones, machine_delay_time

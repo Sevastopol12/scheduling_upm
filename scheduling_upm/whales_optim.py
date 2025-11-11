@@ -69,7 +69,7 @@ class WhaleOptimizationAlgorithm:
                         # Exploitation: Shrinking encircling mechanism
                         candidate_schedule = discrete_shrinking_mechanism(
                             best_schedule=self.best_schedule.schedule,
-                            n_moves=random.randint(1, 5),
+                            n_moves=random.randint(1, max(1, (A * 10 - 1))),
                         )
                     else:
                         # Exploration: Search for prey
