@@ -13,35 +13,39 @@ def generate_environment(
         n_machines (int, optional): number of machine. Defaults to 4.
 
     Returns:
-        tasks: dict: task_id -> {
+        Dictionary of:
+
+        1. tasks: dict: task_id -> {
             "proc_times": Thời gian để thực hiện task này, khác nhau với mỗi máy
             "resource": lượng tài nguyên cần để thực hiện task
         }
-        setup: dict of (task, task): Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
+        2. setups: dict of (task, task): Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
         VD: setup_time từ task a->b, được biểu diễn là (a,b) sẽ khác setup_time từ task a->c (a,c) và ngược lại
     """
     if seed is not None:
         random.seed(seed)
+
     # Generate tasks
     tasks: Dict[int, Any] = {}
     for t in range(n_tasks):
         times: List[int] = process_time_on_each_machine(n_machines=n_machines)
-        resource: int = random.randint(0, 120)
+
         tasks[t] = {
             "process_times": times,
-            "resource": resource,
         }
 
     # Sequence-dependent setup times between tasks
     setup_time = generate_sequence_dependent_constraint(n_tasks=n_tasks)
     precedences = generate_precedences_constraint(n_tasks=n_tasks)
+    resource = generate_resource_constraint(n_machines=n_machines, n_tasks=n_tasks)
 
     return {
         "n_tasks": n_tasks,
         "n_machines": n_machines,
         "tasks": tasks,
         "setups": setup_time,
-        "precedences": precedences
+        "precedences": precedences,
+        "resource": resource,
     }
 
 
@@ -53,6 +57,22 @@ def process_time_on_each_machine(n_machines: int) -> List[int]:
         base_process_time: int = random.randint(5, 30)
         times.append(max(1, int(base_process_time * modifier)))
     return times
+
+
+def resource_usage_on_each_machine(n_machines: int) -> Tuple[List[int], List[int]]:
+    setup_usages: List[int] = []
+    process_usages: List[int] = []
+
+    for _ in range(n_machines):
+        # Performance coefficient
+        modifier: float = random.choice([0.6, 0.8, 1.0, 1.2, 1.6])
+        process_resource: int = int(random.randint(5, 20) * modifier)
+        setup_resource: int = int(random.randint(5, 20) * modifier)
+
+        setup_usages.append(int(setup_resource * modifier))
+        process_usages.append(int(process_resource * modifier))
+
+    return setup_usages, process_usages
 
 
 def generate_sequence_dependent_constraint(n_tasks: int) -> Dict[Tuple[int, int], int]:
@@ -101,8 +121,33 @@ def generate_precedences_constraint(n_tasks: int):
         if precedences.get(task_a, None) is None:
             precedences[task_a] = set()
         precedences[task_a].add(task_a_precedence)
-        
+
     return precedences
+
+
+def generate_resource_constraint(
+    n_machines: int = 2, n_tasks: int = 4
+) -> Dict[str, Any]:
+    max_process_resource = int(n_machines * 10)  # random.choice([0.7, 0.8, 0.9, 1.0])
+    max_setup_resource = int(n_machines * 10)  # random.choice([0.7, 0.8, 0.9, 1.0])
+
+    resource: Dict[str, Any] = {
+        "max_process_resource": max_process_resource,
+        "max_setup_resource": max_setup_resource,
+        "task_resource": {},
+    }
+
+    for task in range(n_tasks):
+        setup_usage, process_usage = resource_usage_on_each_machine(
+            n_machines=n_machines
+        )
+        resource["task_resource"][task] = {
+            "process_usage": process_usage,
+            "setup_usage": setup_usage,
+        }
+
+    return resource
+
 
 if __name__ == "__main__":
     generate_environment()

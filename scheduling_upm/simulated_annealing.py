@@ -15,6 +15,7 @@ class SimulatedAnnealing:
         tasks: Dict[int, Any],
         setups: Dict[Tuple[int, int], int],
         precedences: Dict[int, Set] = None,
+        resource: Dict[str, Any] = None,
         n_iterations: int = 1000,
         initial_temp: float = 1000.0,
     ):
@@ -23,6 +24,7 @@ class SimulatedAnnealing:
         self.n_machines = n_machines
         self.n_iterations = n_iterations
         self.precedences = precedences or {}
+        self.resource = resource or {}
         self.initial_temp = initial_temp
         self.best_schedule = None
         self.current_schedule = None
