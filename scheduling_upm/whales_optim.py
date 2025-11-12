@@ -24,6 +24,7 @@ class WhaleOptimizationAlgorithm:
         n_schedules: int = 10,
         n_iterations: int = 1000,
         precedences: Dict[int, Set] = None,
+        resources: Dict[str, Any] = None,
     ):
         if n_machines <= 0 or n_schedules <= 0:
             raise ValueError()
@@ -34,8 +35,10 @@ class WhaleOptimizationAlgorithm:
         self.n_schedules = n_schedules
         self.n_iterations = n_iterations
         self.precedences = precedences or {}
+        self.resources = resources or {}
         self.schedules: List[Schedule] = []
         self.best_schedule: Schedule = None
+        self.history = []
 
     def initialize_population(self):
         """Initializes the pod of whales"""
@@ -59,7 +62,7 @@ class WhaleOptimizationAlgorithm:
         for iter in range(self.n_iterations):
             a = self.linearly_decrement(iter=iter)
 
-            for schedule in self.schedules:
+            for agent_schedule in self.schedules:
                 A = 2 * a * random.random() - a
                 # C = 2 * random.random()
                 possibility = random.random()
@@ -69,17 +72,24 @@ class WhaleOptimizationAlgorithm:
                         # Exploitation: Shrinking encircling mechanism
                         candidate_schedule = discrete_shrinking_mechanism(
                             best_schedule=self.best_schedule.schedule,
-                            n_moves=random.randint(1, max(1, (A * 10 - 1))),
+                            n_moves=random.randint(1, max(1, int(a * 10 + 1))),
+                            **{
+                                "precedences": self.precedences,
+                                "resources": self.resources,
+                                "setups": self.setups,
+                                "obj_function": objective_function,
+                                "tasks": self.tasks,
+                            },
                         )
                     else:
                         # Exploration: Search for prey
                         candidate_schedule = random_explore(
-                            tasks=self.tasks, schedule=schedule.schedule
+                            tasks=self.tasks, schedule=agent_schedule.schedule
                         )
                 else:
                     # Exploitation: Spiral updating
                     candidate_schedule = discrete_spiral_update(
-                        schedule=schedule.schedule,
+                        schedule=agent_schedule.schedule,
                         best_schedule=self.best_schedule.schedule,
                     )
 
@@ -88,21 +98,35 @@ class WhaleOptimizationAlgorithm:
                     tasks=self.tasks,
                     setups=self.setups,
                     precedences=self.precedences,
+                    resources=self.resources,
                 )
 
-                if candidate_cost < schedule.cost:
-                    schedule.update(
+                if candidate_cost < agent_schedule.cost:
+                    agent_schedule.update(
                         new_schedule=copy.deepcopy(candidate_schedule),
                         new_cost=candidate_cost,
                     )
 
-                if schedule.cost < self.best_schedule.cost:
+                if agent_schedule.cost < self.best_schedule.cost:
                     self.best_schedule.update(
-                        new_schedule=copy.deepcopy(schedule.schedule),
-                        new_cost=schedule.cost,
+                        new_schedule=copy.deepcopy(agent_schedule.schedule),
+                        new_cost=agent_schedule.cost,
                     )
+                self.history.append(
+                    {
+                        "iteration": iter,
+                        # "iter_cost": self.current_schedule.cost,
+                        "iter_schedule": self.schedules,
+                        "best_schedule": self.best_schedule.schedule,
+                        "best_cost": self.best_schedule.cost,
+                    }
+                )
 
-        return self.best_schedule
+            # early stop when a got too small
+            if a < 1e-8:
+                break
+
+        return self.best_schedule, self.history
 
     def linearly_decrement(self, iter: int):
         return 2 - 2 * (iter / self.n_iterations)

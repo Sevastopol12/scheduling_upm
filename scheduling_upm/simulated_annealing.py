@@ -2,7 +2,7 @@ import math
 import random
 import copy
 from typing import Dict, Any, Tuple, Set
-from .strategies.sa_strategy import random_explore, transition, exploit
+from .strategies.sa_strategy import random_explore, exploit
 from .utils.operations import generate_schedule
 from .utils.evaluation import objective_function
 from .utils.entities import Schedule
@@ -15,7 +15,7 @@ class SimulatedAnnealing:
         tasks: Dict[int, Any],
         setups: Dict[Tuple[int, int], int],
         precedences: Dict[int, Set] = None,
-        resource: Dict[str, Any] = None,
+        resources: Dict[str, Any] = None,
         n_iterations: int = 1000,
         initial_temp: float = 1000.0,
     ):
@@ -24,7 +24,7 @@ class SimulatedAnnealing:
         self.n_machines = n_machines
         self.n_iterations = n_iterations
         self.precedences = precedences or {}
-        self.resource = resource or {}
+        self.resources = resources or {}
         self.initial_temp = initial_temp
         self.best_schedule = None
         self.current_schedule = None
@@ -55,14 +55,12 @@ class SimulatedAnnealing:
             progress: float = iter / self.n_iterations
 
             # Explore
-            if probability < 0.5 * (1 - progress):
+            if probability < 0.7 * (1 - progress):
                 candidate_schedule = random_explore(
-                    schedule=self.current_schedule.schedule, tasks=self.tasks
-                )
-            # Transition
-            elif probability < 0.9 * (1 - progress):
-                candidate_schedule = transition(
-                    schedule=self.current_schedule.schedule, tasks=self.tasks
+                    schedule=self.current_schedule.schedule,
+                    tasks=self.tasks,
+                    obj_function=objective_function,
+                    **{"precedences": self.precedences, "setups": self.setups},
                 )
             # Exploit
             else:
@@ -70,7 +68,11 @@ class SimulatedAnnealing:
                     schedule=self.current_schedule.schedule,
                     tasks=self.tasks,
                     obj_function=objective_function,
-                    **{"precedences": self.precedences, "setups": self.setups},
+                    **{
+                        "precedences": self.precedences,
+                        "setups": self.setups,
+                        "resources": self.resources,
+                    },
                 )
 
             candidate_cost = objective_function(
@@ -78,6 +80,7 @@ class SimulatedAnnealing:
                 tasks=self.tasks,
                 setups=self.setups,
                 precedences=self.precedences,
+                resources=self.resources,
             )
 
             acp: float = self.acceptance_probability(

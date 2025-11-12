@@ -37,7 +37,7 @@ def generate_environment(
     # Sequence-dependent setup times between tasks
     setup_time = generate_sequence_dependent_constraint(n_tasks=n_tasks)
     precedences = generate_precedences_constraint(n_tasks=n_tasks)
-    resource = generate_resource_constraint(n_machines=n_machines, n_tasks=n_tasks)
+    resources = generate_resource_constraint(n_machines=n_machines, n_tasks=n_tasks)
 
     return {
         "n_tasks": n_tasks,
@@ -45,7 +45,7 @@ def generate_environment(
         "tasks": tasks,
         "setups": setup_time,
         "precedences": precedences,
-        "resource": resource,
+        "resources": resources,
     }
 
 
@@ -131,22 +131,22 @@ def generate_resource_constraint(
     max_process_resource = int(n_machines * 10)  # random.choice([0.7, 0.8, 0.9, 1.0])
     max_setup_resource = int(n_machines * 10)  # random.choice([0.7, 0.8, 0.9, 1.0])
 
-    resource: Dict[str, Any] = {
+    resources: Dict[str, Any] = {
         "max_process_resource": max_process_resource,
         "max_setup_resource": max_setup_resource,
-        "task_resource": {},
+        "task_resources": {},
     }
 
     for task in range(n_tasks):
         setup_usage, process_usage = resource_usage_on_each_machine(
             n_machines=n_machines
         )
-        resource["task_resource"][task] = {
+        resources["task_resources"][task] = {
             "process_usage": process_usage,
             "setup_usage": setup_usage,
         }
 
-    return resource
+    return resources
 
 
 if __name__ == "__main__":

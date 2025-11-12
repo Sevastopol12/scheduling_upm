@@ -1,4 +1,5 @@
 from typing import List, Tuple, Dict, Any, Set
+from collections import defaultdict
 
 
 def objective_function(
@@ -6,6 +7,7 @@ def objective_function(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
     precedences: Dict[int, Set[int]] = None,
+    resources: Dict[str, Any] = None,
 ) -> int:
     """Objective: Minimize makespan"""
     # Compute milestones of task's completion time .Accounts for setups
@@ -13,14 +15,19 @@ def objective_function(
 
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
     if precedences is not None:
-        task_milestones, machine_total_delay = apply_precedences_constraint(
+        task_milestones, deadlock_penalty = apply_precedences_constraint(
             schedule=schedule,
             task_milestones=task_milestones,
             precedences=precedences,
         )
 
-    # TODO
-    # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
+    # Áp dụng ràng buộc resource để tính penalty
+    if resources is not None:
+        process_penalty, setup_penalty = resource_distribution_over_time(
+            task_milestones=task_milestones, resources=resources
+        )
+    else:
+        process_penalty = setup_penalty = 0
 
     # Makespan
     makespan = compute_makespan(task_milestones=task_milestones)
@@ -29,15 +36,16 @@ def objective_function(
     # Xét thêm những khía cạnh khác, tính cost
 
     # Cost
-    cost = makespan
+    cost = makespan + deadlock_penalty + process_penalty + setup_penalty
     return cost
 
 
-def compute_makespan(task_milestones: Dict[int, int]) -> int:
-    task_complete_time = [
-        task_milestones[task]["complete_time"] for task in task_milestones.keys()
-    ]
-    return max(task_complete_time)
+def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
+    latest_task = sorted(
+        task_milestones.values(), key=lambda task: task["complete_time"]
+    )
+    makespan = latest_task[-1]["complete_time"]
+    return makespan
 
 
 def record_milestones(
@@ -91,17 +99,27 @@ def apply_precedences_constraint(
 
     # Storing machine total delay time as the result of taking precedences into accounts
     machine_delay_time = {}
+    deadlock_penalty = 0
 
     # Locate precedence violation and record
     for task, sequence in precedences.items():
         for precedence_task in sequence:
-            task_start_process = new_task_milestones[task]["start_process"]
+            task_start_time = new_task_milestones[task]["start_process"]
             precedence_complete_time = new_task_milestones[precedence_task][
                 "complete_time"
             ]
 
-            if precedence_complete_time > task_start_process:
-                delay_time: int = precedence_complete_time - task_start_process
+            if precedence_complete_time > task_start_time:
+                # Infeasible solution
+                if (
+                    new_task_milestones[precedence_task]["process_machine"]
+                    == new_task_milestones[task]["process_machine"]
+                ):
+                    deadlock_penalty += int(10e2) * (
+                        precedence_complete_time - task_start_time
+                    )
+
+                delay_time: int = precedence_complete_time - task_start_time
 
                 # Get task position
                 position: List[Tuple] = (
@@ -119,7 +137,68 @@ def apply_precedences_constraint(
         machine, idx = position
 
         for task in schedule[machine][idx:]:
+            task_milestones[task]["start_setup"] += delay_time
             task_milestones[task]["start_process"] += delay_time
             task_milestones[task]["complete_time"] += delay_time
 
-    return new_task_milestones, machine_delay_time
+    del machine_delay_time
+    return new_task_milestones, deadlock_penalty
+
+
+def resource_distribution_over_time(
+    task_milestones: Dict[int, Dict[str, Any]],
+    resources: Dict[str, Any],
+) -> Tuple[int, int]:
+    process_cap: int = resources["max_process_resource"]
+    setup_cap: int = resources["max_setup_resource"]
+    task_resources: Dict[int, Dict[str, Any]] = resources["task_resources"]
+
+    # Event log: time/usage
+    process_events: Dict[int, int] = defaultdict(int)
+    setup_events: Dict[int, int] = defaultdict(int)
+
+    # Populate events lists
+    for task, task_properties in task_milestones.items():
+        # Get task's needed resource
+        machine: int = task_properties["process_machine"]
+        setup_usage: int = task_resources[task]["setup_usage"][machine]
+        process_usage: int = task_resources[task]["process_usage"][machine]
+
+        # Setup phase
+        setup_events[task_properties["start_setup"]] += setup_usage
+        setup_events[task_properties["start_process"]] -= setup_usage
+
+        # Process phase
+        process_events[task_properties["start_process"]] += process_usage
+        process_events[task_properties["complete_time"]] -= process_usage
+
+    # Process events to calculate total penalty on violation
+    setup_exceeds_penalty = total_penalty_on_violation(
+        events_log=setup_events, resource_cap=setup_cap
+    )
+    process_exceeds_penalty = total_penalty_on_violation(
+        events_log=process_events, resource_cap=process_cap
+    )
+
+    return process_exceeds_penalty, setup_exceeds_penalty
+
+
+def total_penalty_on_violation(events_log: Dict[int, int], resource_cap: int) -> int:
+    # List of events start time
+    sorted_event_start_times: list[int] = sorted(events_log.keys())
+    current_usages: int = 0
+    exceeds_penalty: int = 0
+
+    for idx in range(1, len(sorted_event_start_times)):
+        start_time: int = sorted_event_start_times[idx - 1]
+        end_time: int = sorted_event_start_times[idx]
+
+        # Penalize per unit exceeds * duration
+        if current_usages > resource_cap:
+            duration: int = end_time - start_time
+            penalty_per_unit_time: int = current_usages - resource_cap
+            exceeds_penalty += penalty_per_unit_time * duration
+
+        current_usages += events_log[start_time]
+
+    return exceeds_penalty
