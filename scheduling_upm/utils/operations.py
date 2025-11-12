@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 def random_move(
     schedule: Dict[int, List[Any]], n_moves: int = 1
 ) -> Dict[int, List[Any]]:
-    """Early stage. Move a task from one machine to another"""
+    """All. Move a task from one machine to another"""
     for _ in range(n_moves):
         machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
 
@@ -23,7 +23,7 @@ def random_move(
 
 def inter_machine_swap(schedule: Dict[int, List[int]], n_swaps: int = 1):
     """
-    Early-Mid stage. Swap tasks between different machines:
+    All. Swap tasks between different machines:
     """
     for _ in range(n_swaps):
         machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
@@ -45,7 +45,7 @@ def inter_machine_swap(schedule: Dict[int, List[int]], n_swaps: int = 1):
 def generate_schedule(
     tasks: Dict[int, Any], n_machines: int = 4
 ) -> Dict[int, List[int]]:
-    """Initial / Early stage. Generate a whole new schedule"""
+    """Initial / Explore. Generate a whole new schedule"""
     schedule: Dict[int, List[int]] = {machine: [] for machine in range(n_machines)}
     shuffled_tasks = list(tasks.keys())
     random.shuffle(shuffled_tasks)
@@ -59,7 +59,7 @@ def generate_schedule(
 def shuffle_machine(
     schedule: Dict[int, List[Any]], n_machines: int = 1
 ) -> Dict[int, List[Any]]:
-    """Early / Late stage. Shuffle task order on random machine."""
+    """Explore. Shuffle task order on random machine."""
     machines = random.sample(list(schedule.keys()), n_machines)
     for machine in machines:
         if len(schedule[machine]) > 0:
@@ -69,7 +69,7 @@ def shuffle_machine(
 
 
 def intra_machine_swap(schedule: Dict[int, List[Any]]) -> Dict[int, List[Any]]:
-    """All stage. Swap two tasks within the same machine"""
+    """All. Swap two tasks within the same machine"""
     machine = random.choice(list(schedule.keys()))
     if len(schedule[machine]) > 1:
         task_a, task_b = random.sample(range(len(schedule[machine])), 2)
@@ -82,7 +82,7 @@ def intra_machine_swap(schedule: Dict[int, List[Any]]) -> Dict[int, List[Any]]:
 
 
 def critical_task_move(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
-    """Mid-Late stage. Move a longest-processing task from one machine to another"""
+    """Transition-Exploit stage. Move a longest-processing task from one machine to another"""
     machine_a, machine_b = random.sample(list(schedule.keys()), 2)
     if len(schedule[machine_a]) < 1:
         return schedule
@@ -104,7 +104,7 @@ def critical_task_move(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
 def lookahead_insertion(
     schedule: Dict[int, List[int]], obj_function: callable, attempts: int = 10, **kwargs
 ):
-    """Late stage. Attempt to find the best position to insert a task in"""
+    """Exploit. Attempt to find the best position to insert a task in"""
     new_schedule = {machine: sequence for machine, sequence in schedule.items()}
     current_cost: float = obj_function(schedule=new_schedule, **kwargs)
 
@@ -117,3 +117,6 @@ def lookahead_insertion(
             return candidate
 
     return new_schedule
+
+
+

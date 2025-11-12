@@ -6,17 +6,21 @@ from ..utils.operations import (
     random_move,
     shuffle_machine,
     intra_machine_swap,
-    critical_task_move,
     lookahead_insertion,
 )
 
 
-def random_explore(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
-    # Early stage: Explore
+def random_explore(
+    schedule: Dict[int, List[int]],
+    tasks: Dict[int, Any],
+    obj_function: callable,
+    **kwargs,
+):
+    # Explore
     operation_pool: List[Tuple[callable, Dict]] = [
         (random_move, {"schedule": schedule, "n_moves": random.randint(1, 10)}),
-        (generate_schedule, {"tasks": tasks, "n_machines": len(schedule.keys())}),
         (intra_machine_swap, {"schedule": schedule}),
+        (generate_schedule, {"tasks": tasks, "n_machines": len(schedule.keys())}),
         (
             inter_machine_swap,
             {"schedule": schedule, "n_swaps": random.randint(1, 10)},
@@ -28,27 +32,22 @@ def random_explore(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
                 "n_machines": random.randint(1, len(schedule.keys()) // 2),
             },
         ),
+        (
+            lookahead_insertion,
+            {
+                "schedule": schedule,
+                "tasks": tasks,
+                "attempts": random.randint(10, 20),
+                "obj_function": obj_function,
+                **kwargs,
+            },
+        ),
     ]
 
     operation, kwargs = random.choice(operation_pool)
-    schedule = operation(**kwargs)
+    new_schedule = operation(**kwargs)
 
-    return schedule
-
-
-def transition(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
-    # Mid stage: Transition
-    operation_pool: List[Tuple[callable, Dict]] = [
-        (random_move, {"schedule": schedule}),
-        (inter_machine_swap, {"schedule": schedule}),
-        (intra_machine_swap, {"schedule": schedule}),
-        (shuffle_machine, {"schedule": schedule}),
-    ]
-
-    operation, kwargs = random.choice(operation_pool)
-    schedule = operation(**kwargs)
-
-    return schedule
+    return new_schedule
 
 
 def exploit(
@@ -57,17 +56,20 @@ def exploit(
     obj_function: callable,
     **kwargs,
 ):
-    # Late stage: Exploit
+    # Exploit
     operation_pool: List[Tuple[callable, Dict]] = [
-        (inter_machine_swap, {"schedule": schedule}),
+        (random_move, {"schedule": schedule, "n_moves": random.randint(1, 3)}),
         (intra_machine_swap, {"schedule": schedule}),
-        (critical_task_move, {"schedule": schedule, "tasks": tasks}),
+        (
+            inter_machine_swap,
+            {"schedule": schedule, "n_swaps": random.randint(1, 3)},
+        ),
         (
             lookahead_insertion,
             {
                 "schedule": schedule,
                 "tasks": tasks,
-                "attempts": random.randint(1, 10),
+                "attempts": random.randint(10, 20),
                 "obj_function": obj_function,
                 **kwargs,
             },
@@ -75,6 +77,6 @@ def exploit(
     ]
 
     operation, kwargs = random.choice(operation_pool)
-    schedule = operation(**kwargs)
+    new_schedule = operation(**kwargs)
 
-    return schedule
+    return new_schedule

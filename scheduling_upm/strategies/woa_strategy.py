@@ -7,6 +7,7 @@ from ..utils.operations import (
     random_move,
     shuffle_machine,
     intra_machine_swap,
+    lookahead_insertion,
 )
 
 
@@ -35,7 +36,8 @@ def random_explore(
     ]
 
     operation, kwargs = random.choice(operation_pool)
-    return operation(**kwargs)
+    new_schedule = operation(**kwargs)
+    return new_schedule
 
 
 def discrete_spiral_update(
@@ -62,21 +64,23 @@ def discrete_spiral_update(
 
 
 def discrete_shrinking_mechanism(
-    best_schedule: Dict[int, List[int]], n_moves: int = 2
+    best_schedule: Dict[int, List[int]], n_moves: int = 2, *args, **kwargs
 ) -> Dict[int, List[int]]:
     """
     Design specifically for WOA. Creates a new schedule by making small random adjustments to the best schedule
     """
     new_schedule = copy.deepcopy(best_schedule)
     operation_pool: List[Callable] = [
-        shuffle_machine,
-        random_move,
-        intra_machine_swap,
-        inter_machine_swap,
+        (intra_machine_swap, {"schedule": new_schedule}),
+        (inter_machine_swap, {"schedule": new_schedule}),
+        (
+            lookahead_insertion,
+            {"attempts": random.randint(10, 20), "schedule": new_schedule, **kwargs},
+        ),
     ]
 
     for _ in range(n_moves):
-        operation = random.choice(operation_pool)
-        new_schedule = operation(copy.deepcopy(new_schedule))
+        operation, according_args = random.choice(operation_pool)
+        new_schedule = operation(**according_args)
 
     return new_schedule
