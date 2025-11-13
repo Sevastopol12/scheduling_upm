@@ -16,6 +16,7 @@ class SimulatedAnnealing:
         setups: Dict[Tuple[int, int], int],
         precedences: Dict[int, Set] = None,
         resource: Dict[str, Any] = None,
+        energy_constraint: Dict[str, Any] = None,
         n_iterations: int = 1000,
         initial_temp: float = 1000.0,
     ):
@@ -25,6 +26,7 @@ class SimulatedAnnealing:
         self.n_iterations = n_iterations
         self.precedences = precedences or {}
         self.resource = resource or {}
+        self.energy_constraint = energy_constraint or {}
         self.initial_temp = initial_temp
         self.best_schedule = None
         self.current_schedule = None
@@ -70,7 +72,11 @@ class SimulatedAnnealing:
                     schedule=self.current_schedule.schedule,
                     tasks=self.tasks,
                     obj_function=objective_function,
-                    **{"precedences": self.precedences, "setups": self.setups},
+                    **{
+                        "precedences": self.precedences,
+                        "setups": self.setups,
+                        "energy_constraint": self.energy_constraint,
+                    },
                 )
 
             candidate_cost = objective_function(
@@ -78,6 +84,7 @@ class SimulatedAnnealing:
                 tasks=self.tasks,
                 setups=self.setups,
                 precedences=self.precedences,
+                energy_constraint=self.energy_constraint,
             )
 
             acp: float = self.acceptance_probability(

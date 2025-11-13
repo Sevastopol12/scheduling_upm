@@ -1,12 +1,14 @@
-
 import copy
 from typing import List, Tuple, Dict, Any
+from collections import defaultdict
+
 
 def objective_function(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
     precedences: Dict[int, Any] = None,
+    energy_constraint: Dict[str, Any] = None,
 ) -> Tuple:
     """Objective: Minimize makespan"""
 
@@ -28,15 +30,30 @@ def objective_function(
     # TODO
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
 
+    # Energy consumption penalty
+    if energy_constraint is not None:
+        energy_exceeds_penalty = energy_consumption_over_time(
+            task_milestones=task_completion_milestones,
+            energy_constraint=energy_constraint,
+        )
+
     # Makespan
-    makespan = max(task_completion_milestones.values())
+    makespan = compute_makespan(task_milestones=task_completion_milestones)
 
     # TODO
     # Xét thêm những khía cạnh khác, tính cost
 
     # Cost
-    cost = makespan
+    cost = makespan + energy_exceeds_penalty
     return cost
+
+
+def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
+    latest_task = sorted(
+        task_milestones.values(), key=lambda task: task["complete_time"]
+    )
+    makespan = latest_task[-1]["complete_time"]
+    return makespan
 
 
 def compute_base_milestones(
@@ -44,11 +61,13 @@ def compute_base_milestones(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
 ):
-    # Lưu trữ thời gian hoàn thành của mỗi task
-    task_completion_milestones: Dict[int, int] = {}
+    # Lưu trữ mốc thời gian hoàn thành và tổng thời gian chạy, setup của mỗi task
+    task_milestones: Dict[int, Dict[str, int]] = {}
 
-    # Lưu trữ các mốc thời gian của mỗi máy khi hoàn thành 1 task
-    machine_completion_milestone: Dict[int, int] = {
+    # Lưu trữ các mốc thời gian hoàn thành mỗi task của máy
+    # E.g: { machine: [task_1_complete_time, task_2_complete_time,.etc],.etc }
+
+    machine_milestones: Dict[int, List[int]] = {
         machine: 0 for machine in schedule.keys()
     }
 
@@ -59,10 +78,23 @@ def compute_base_milestones(
             process_time = tasks[task]["process_times"][machine]
             setup_time = 0 if idx < 1 else setups[sequence[idx - 1], sequence[idx]]
 
-            machine_completion_milestone[machine] += process_time + setup_time
-            task_completion_milestones[task] = machine_completion_milestone[machine]
+            # Start time
+            current_runtime: int = 0 if idx < 1 else machine_milestones[machine]
 
-    return task_completion_milestones
+            # Update new complete time
+            machine_milestones[machine] += process_time + setup_time
+
+            # Store task info
+            task_milestones[task] = {
+                "start_setup": current_runtime,
+                "start_process": current_runtime + setup_time,
+                "complete_time": machine_milestones[machine],
+                "process_machine": machine,
+                "idx": idx,
+            }
+
+    del machine_milestones
+    return task_milestones
 
 
 def precedence_constraint(
@@ -120,3 +152,54 @@ def precedence_constraint(
                         actual_completion_times[cur_task] += delay
 
     return 0, actual_completion_times
+
+
+def energy_consumption_over_time(
+    task_milestones: Dict[int, Dict[str, Any]],
+    energy_constraint: Dict[str, Any],
+) -> int:
+    energy_cap: int = energy_constraint["energy_cap"]
+    energy_usages: Dict[int, List[int]] = energy_constraint["energy_usages"]
+
+    # Events log of  time: consume energy / release
+    events_log: Dict[int, int] = defaultdict(int)
+
+    # Populate events lists
+    for task, properties in task_milestones.items():
+        # Get task's energy usages
+        machine: int = properties["process_machine"]
+        usage: int = energy_usages[task][machine]
+        # Add events
+        events_log[properties["start_setup"]] += usage
+        events_log[properties["complete_time"]] -= usage
+
+    # Process events to calculate total penalty on violation
+    exceeds_penalty: int = total_penalty_on_violation(
+        events_log=events_log, energy_cap=energy_cap
+    )
+
+    return exceeds_penalty
+
+
+def total_penalty_on_violation(events_log: Dict[int, int], energy_cap: int) -> int:
+    # List of events start time
+    sorted_event_start_times: list[int] = sorted(events_log.keys())
+    current_usages: int = 0
+    exceeds_penalty: int = 0
+
+    for idx in range(len(sorted_event_start_times)):
+        start_time: int = sorted_event_start_times[idx]
+        end_time: int = (
+            sorted_event_start_times[idx + 1]
+            if idx + 1 < len(sorted_event_start_times)
+            else start_time
+        )
+        current_usages += events_log[start_time]
+
+        # Penalize per unit exceeds * duration
+        if current_usages > energy_cap:
+            duration: int = end_time - start_time
+            penalty_per_unit_time: int = current_usages - energy_cap
+            exceeds_penalty += penalty_per_unit_time * duration
+
+    return exceeds_penalty

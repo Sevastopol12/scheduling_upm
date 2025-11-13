@@ -24,6 +24,7 @@ class WhaleOptimizationAlgorithm:
         n_schedules: int = 10,
         n_iterations: int = 1000,
         precedences: Dict[int, Set] = None,
+        energy_constraint: Dict[str, Any] = None
     ):
         if n_machines <= 0 or n_schedules <= 0:
             raise ValueError()
@@ -34,6 +35,7 @@ class WhaleOptimizationAlgorithm:
         self.n_schedules = n_schedules
         self.n_iterations = n_iterations
         self.precedences = precedences or {}
+        self.energy_constraint = energy_constraint or {}
         self.schedules: List[Schedule] = []
         self.best_schedule: Schedule = None
 
@@ -46,6 +48,7 @@ class WhaleOptimizationAlgorithm:
                 tasks=self.tasks,
                 setups=self.setups,
                 precedences=self.precedences,
+                energy_constraint=self.energy_constraint
             )
             self.schedules.append(Schedule(schedule=schedule, cost=cost))
 
@@ -90,6 +93,7 @@ class WhaleOptimizationAlgorithm:
                     tasks=self.tasks,
                     setups=self.setups,
                     precedences=self.precedences,
+                    energy_constraint=self.energy_constraint
                 )
 
                 if candidate_cost < schedule.cost:
