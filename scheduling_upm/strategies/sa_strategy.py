@@ -9,6 +9,7 @@ from ..utils.operations import (
     critical_task_move,
     lookahead_insertion,
 )
+from scheduling_upm.utils.evaluation import calculate_load_standard_deviation
 
 
 def random_explore(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
@@ -78,3 +79,7 @@ def exploit(
     schedule = operation(**kwargs)
 
     return schedule
+
+# Trả về obj_value của schedule
+def evaluate_schedule(schedule, n_machines, tasks):
+    return calculate_load_standard_deviation(schedule, n_machines, tasks)
