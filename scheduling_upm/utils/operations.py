@@ -128,8 +128,8 @@ def precedence_constraint(
     task_to_machine = {task: m for m, seq in schedule.items() for task in seq}
     actual_completion_times = copy.deepcopy(task_completion_milestones)
 
-    # chọn phương án pen nếu vi phạm
-    PENALTY_VALUE = 10**6
+    # sửa giá trị pen nếu vi phạm
+    PENALTY_BASE = 10**2
 
     # xong phần chuẩn bị r, h t vô thì t sẽ check precedence
     # t giải quyết 2 vấn đề: nếu task k cs ràng buộc, nếu các task trên cùng máy - khác máy
@@ -148,7 +148,9 @@ def precedence_constraint(
                 idx_pre = seq.index(pre)
                 idx_post = seq.index(post)
 
-                if idx_pre > idx_post:
+                if idx_pre > idx_post: # chỉnh lại cách tính pen linh hoạt chứ k cố định
+                    DISTANCE = abs(idx_pre - idx_post)
+                    PENALTY_VALUE = PENALTY_BASE * DISTANCE
                     return PENALTY_VALUE, actual_completion_times
 
             else:
