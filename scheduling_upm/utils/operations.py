@@ -122,45 +122,91 @@ def apply_resource_constraint(schedule: Dict[int, List[int]],
                               tasks: Dict[int, Any],
                               setups: Dict[Tuple[int, int], int],
                               total_resource: int) -> Dict[int, List[Dict[str, Any]]]:
-
-    pool_resource = total_resource #pool resource là tài nguyên còn lại trong pool mà ban đầu là tổng resource
-    running_tasks: List[Dict[str, Any]] = [] # danh sách các task đang chạy có 
-    current_time: Dict[int, int] = {m: 0 for m in schedule.keys()} #Thời gian hiện tại của từng máy
-    final_schedule: Dict[int, List[Dict[str, Any]]] = {m: [] for m in schedule.keys()} #Lịch trình cuối cùng sau khi áp dụng ràng buộc tài nguyên
-
-    for m in schedule.keys(): # duyệt qua từng máy
-        for idx, task_id in enumerate(schedule[m]): # duyệt qua từng task trên máy m
-            needed_resource = tasks[task_id]["resource"] #lấy resource cần thiết để thực hiện task
-            proc_time = tasks[task_id]["process_times"][m] #lấy thời gian xử lý của task trên máy m
-            setup_time = 0 if idx == 0 else setups[(schedule[m][idx - 1], task_id)] #
-
-            # Đợi đến khi có đủ resource trong pool
-            while needed_resource > pool_resource:
-                # tìm task kết thúc sớm nhất
-                min_end = min([r["end"] for r in running_tasks]) #task vừa hoàn thành
-                finished = [r for r in running_tasks if r["end"] == min_end]  
-                for f in finished:
-                    pool_resource += f["resource"] #trả resource về pool
-                    running_tasks.remove(f) #xóa khỏi running tasks
-                current_time[m] = max(current_time[m], min_end) #cập nhật thời gian hiện tại của máy m
-
-            # Khi có đủ resource -> lấy resource từ pool
-            pool_resource -= needed_resource
-            start_time = current_time[m] #task sẽ bắt đầu ở thời gian hiện tại của máy m
-            end_time = start_time + proc_time + setup_time
-
-            task_info = {
-                "task_id": task_id,
-                "machine": m,
-                "start": start_time,
-                "end": end_time,
-                "resource": needed_resource
-            }#ghi lại task
+    
+    pool_resource = total_resource #lượng resource hiện có = tổng resource
+    running_tasks: List[Dict[str, Any]] = [] # Danh sách các task đang chạy sau khi cấp resource
+    current_time = 0 # Thời gian hiện tại
+    current_task_index = {m: 0 for m in schedule.keys()} # theo dõi task của mỗi máy
+    final_schedule: Dict[int, List[Dict[str, Any]]] = {m: [] for m in schedule.keys()} #lịch trả về
+    current_machine_time = {m: 0 for m in schedule.keys()} #thời gian rảnh
+    
+    total_tasks = sum(len(schedule[m]) for m in schedule) #đếm tổng số task 
+    completed_tasks = 0 #dùng để dừng vòng lặp
+    
+    while completed_tasks < total_tasks: #lặp đến khi hoàn thành tất cả task
+        finished_tasks = [t for t in running_tasks if t["end"] <= current_time] #tìm task đã hoàn thành (current time > end thì task đã xong)
+        for t in finished_tasks:
+            pool_resource += t["resource"]  #trả lại resource
+            running_tasks.remove(t) #xóa task đã xong khỏi danh sách đang chạy
+            completed_tasks += 1 # tăng task đã hoàn thành lên 1
+            current_machine_time[t["machine"]] = t["end"] # cập nhật thời gian
+        
+        #tìm task tiếp theo trên máy có thể chạy
+        ready_tasks = []
+        for m in schedule.keys():
+            idx = current_task_index[m] #lấy index task hiện tại trên máy m
+            if idx >= len(schedule[m]):  #nếu hết task trên máy thì bỏ qua
+                continue 
             
-            running_tasks.append(task_info) #để ghi các task chiếm resource và giải phóng khi current time = end time
-            current_time[m] = end_time
-            final_schedule[m].append(task_info)
-
+            #kiểm tra máy m có đang chạy task không
+            if any(rt["machine"] == m for rt in running_tasks): #nếu đang chạy thì bỏ qua
+                continue
+            
+            #kiểm tra máy có đang rảnh không
+            if current_machine_time[m] > current_time:
+                continue
+            #lấy thông tin
+            task_id = schedule[m][idx]
+            needed_resource = tasks[task_id]["resource"]
+            proc_time = tasks[task_id]["process_times"][m]
+            #tính setup time chuyển đổi từ task trước đó sang task hiện tại
+            setup_time = 0
+            if idx > 0:
+                prev_task = schedule[m][idx - 1]
+                setup_time = setups.get((prev_task, task_id), 0)
+            #thêm task vào danh sách task sẵn sàng
+            ready_tasks.append({
+                "machine": m,
+                "task_id": task_id,
+                "resource": needed_resource,
+                "proc_time": proc_time,
+                "setup_time": setup_time
+            })
+        
+        scheduled_any = False #biến kiểm tra có task nào được lên lịch trong lần lặp này không
+        for task in ready_tasks: #duyệt qua các task sẵn sàng
+            if task["resource"] <= pool_resource: #nếu đủ resource để chạy task
+                pool_resource -= task["resource"] #trừ resource của pool
+                m = task["machine"] #lấy số máy
+                 #tính thời gian bắt đầu và kết thúc
+                
+                start_time = max(current_machine_time[m], current_time) + task["setup_time"] #lấy max giữa thời gian máy rảnh và hiện tại + setup time
+                end_time = start_time + task["proc_time"] #thời gian kết thúc = start + process time
+                 
+                task_info = {  #chưa thông tin task sau khi schedule
+                    "task_id": task["task_id"],
+                    "machine": m,
+                    "start": start_time,
+                    "end": end_time,
+                    "resource": task["resource"]
+                }
+                
+                running_tasks.append(task_info) #thêm task vào danh sách đang chạy
+                final_schedule[m].append(task_info) #thêm task vào lịch trả về
+                current_task_index[m] += 1 #cập nhật index task trên máy
+                scheduled_any = True #đánh dấu có task được lên lịch
+        
+        
+        if running_tasks: #nếu có task đang chạy
+            current_time = min(t["end"] for t in running_tasks) #nhảy đến thời điểm task sớm nhất kết thúc
+        elif not scheduled_any: #nếu không có task đang chạy và không có task nào được lên lịch
+           
+            next_times = [current_machine_time[m] for m in schedule.keys() #lấy danh sách thời gian rảnh cua các máy còn task chưa schedule
+                         if current_task_index[m] < len(schedule[m])]  #
+            if next_times: 
+                current_time = min(next_times) #nhảy đến thời gian rảnh sớm nhất
+            else: 
+                break  #Không còn task nào thì đã hoàn thành hết task, thoát vòng lặp
+    
     return final_schedule
-
 
