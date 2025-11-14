@@ -130,6 +130,7 @@ def precedence_constraint(
 
     # sửa giá trị pen nếu vi phạm
     PENALTY_BASE = 10**2
+    penalty = 0
 
     # xong phần chuẩn bị r, h t vô thì t sẽ check precedence
     # t giải quyết 2 vấn đề: nếu task k cs ràng buộc, nếu các task trên cùng máy - khác máy
@@ -150,8 +151,8 @@ def precedence_constraint(
 
                 if idx_pre > idx_post: # chỉnh lại cách tính pen linh hoạt chứ k cố định
                     DISTANCE = abs(idx_pre - idx_post)
-                    PENALTY_VALUE = PENALTY_BASE * DISTANCE
-                    return PENALTY_VALUE, actual_completion_times
+                    penalty += PENALTY_BASE * DISTANCE
+                    
 
             else:
                 finish_pre = actual_completion_times[pre]
@@ -172,4 +173,4 @@ def precedence_constraint(
                         cur_task = seq_post[k]
                         actual_completion_times[cur_task] += delay
 
-    return 0, actual_completion_times
+    return penalty, actual_completion_times
