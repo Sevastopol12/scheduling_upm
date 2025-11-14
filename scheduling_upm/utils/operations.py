@@ -1,176 +1,119 @@
 import random
-import copy
-from typing import List, Tuple, Dict, Any
+from typing import List, Dict, Any
 
 
-def swap_task(schedule) -> Dict[int, List[int]]:
-    """Adjustment in schedule, aims to minimize makespan"""
-    new_schedule = copy.deepcopy(schedule)
-    machines: List[int] = list(new_schedule.keys())
-    probability: float = random.random()
+def random_move(
+    schedule: Dict[int, List[Any]], n_moves: int = 1
+) -> Dict[int, List[Any]]:
+    """Early stage. Move a task from one machine to another"""
+    for _ in range(n_moves):
+        machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
 
-    # Swap task between 2 machines
-    if probability < 0.4:
-        machine_a, machine_b = random.sample(machines, k=2)
-        if new_schedule[machine_a] and new_schedule[machine_b]:
-            task_a = random.randrange(len(new_schedule[machine_a]))
-            task_b = random.randrange(len(new_schedule[machine_b]))
+        if len(schedule[machine_a]) < 2:
+            continue
 
-            new_schedule[machine_a][task_a], new_schedule[machine_b][task_b] = (
-                new_schedule[machine_b][task_b],
-                new_schedule[machine_a][task_a],
-            )
+        job_idx = random.randrange(len(schedule[machine_a]))
+        task = schedule[machine_a].pop(job_idx)
 
-    # Move a task from 1 machine to another
-    elif probability < 0.8:
-        machine_a, machine_b = random.sample(machines, k=2)
-        if new_schedule[machine_a]:
-            job_idx = random.randrange(len(new_schedule[machine_a]))
-            task = new_schedule[machine_a].pop(job_idx)
+        pos = random.randrange(len(schedule[machine_b]) + 1)
+        schedule[machine_b].insert(pos, task)
 
-            pos = random.randrange(len(new_schedule[machine_b]) + 1)
-            new_schedule[machine_b].insert(pos, task)
-    # Swap 2 tasks on same machine
-    else:
-        machine = random.choice(machines)
-        if len(new_schedule[machine]) > 1:
-            task_a, task_b = random.sample(range(len(new_schedule[machine])), 2)
-            new_schedule[machine][task_a], new_schedule[machine][task_b] = (
-                new_schedule[machine][task_a],
-                new_schedule[machine][task_b],
-            )
-    return new_schedule
-
-
-def initial_schedule(
-    tasks: Dict[int, Any], n_machines: int = 4
-) -> Dict[int, List[int]]:
-    """Perform Round-robin scheduling method to initialize schedule"""
-    schedule: Dict[int, List[int]] = {machine: [] for machine in range(n_machines)}
-
-    for task in tasks.keys():
-        schedule[task % n_machines].append(task)
     return schedule
 
 
-def objective_function(
-    schedule: Dict[int, List[int]],
-    tasks: Dict[int, Any],
-    setups: Dict[Tuple[int, int], int],
-    precedences: Dict[int, Any] = None,
-) -> Tuple:
-    """Objective: Minimize makespan"""
+def inter_machine_swap(schedule: Dict[int, List[int]], n_swaps: int = 1):
+    """
+    Early-Mid stage. Swap tasks between different machines:
+    """
+    for _ in range(n_swaps):
+        machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
 
-    # Compute milestones of task's completion time . Accouns for setups
-    task_completion_milestones = compute_base_milestones(
-        schedule=schedule, tasks=tasks, setups=setups
-    )
-    # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
-    if precedences:
-        penalty, task_completion_milestones = precedence_constraint(
-            schedule=schedule,
-            task_completion_milestones=task_completion_milestones,
-            setups=setups,
-            precedences=precedences,
+        if len(schedule[machine_a]) < 1 or len(schedule[machine_b]) < 1:
+            continue
+
+        task_a = random.randrange(len(schedule[machine_a]))
+        task_b = random.randrange(len(schedule[machine_b]))
+
+        schedule[machine_a][task_a], schedule[machine_b][task_b] = (
+            schedule[machine_b][task_b],
+            schedule[machine_a][task_a],
         )
-        if penalty > 0:
-            return penalty
 
-    # TODO
-    # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
-
-    # Makespan
-    makespan = max(task_completion_milestones.values())
-
-    # TODO
-    # Xét thêm những khía cạnh khác, tính cost
-
-    # Cost
-    cost = makespan
-    return cost
+    return schedule
 
 
-def compute_base_milestones(
-    schedule: Dict[int, List[int]],
-    tasks: Dict[int, Any],
-    setups: Dict[Tuple[int, int], int],
+def generate_schedule(
+    tasks: Dict[int, Any], n_machines: int = 4
+) -> Dict[int, List[int]]:
+    """Initial / Early stage. Generate a whole new schedule"""
+    schedule: Dict[int, List[int]] = {machine: [] for machine in range(n_machines)}
+    shuffled_tasks = list(tasks.keys())
+    random.shuffle(shuffled_tasks)
+
+    for idx, task in enumerate(shuffled_tasks):
+        schedule[idx % n_machines].append(task)
+
+    return schedule
+
+
+def shuffle_machine(
+    schedule: Dict[int, List[Any]], n_machines: int = 1
+) -> Dict[int, List[Any]]:
+    """Early / Late stage. Shuffle task order on random machine."""
+    machines = random.sample(list(schedule.keys()), n_machines)
+    for machine in machines:
+        if len(schedule[machine]) > 0:
+            random.shuffle(schedule[machine])
+
+    return schedule
+
+
+def intra_machine_swap(schedule: Dict[int, List[Any]]) -> Dict[int, List[Any]]:
+    """All stage. Swap two tasks within the same machine"""
+    machine = random.choice(list(schedule.keys()))
+    if len(schedule[machine]) > 1:
+        task_a, task_b = random.sample(range(len(schedule[machine])), 2)
+        schedule[machine][task_a], schedule[machine][task_b] = (
+            schedule[machine][task_a],
+            schedule[machine][task_b],
+        )
+
+    return schedule
+
+
+def critical_task_move(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
+    """Mid-Late stage. Move a longest-processing task from one machine to another"""
+    machine_a, machine_b = random.sample(list(schedule.keys()), 2)
+    if len(schedule[machine_a]) < 1:
+        return schedule
+
+    longest_task_idx: int = max(
+        range(len(schedule[machine_a])),
+        key=lambda task_idx: tasks[schedule[machine_a][task_idx]]["process_times"][
+            machine_a
+        ],
+    )
+    task = schedule[machine_a].pop(longest_task_idx)
+    # insert near best position
+    insert_position: int = random.randrange(len(schedule[machine_b]) + 1)
+    schedule[machine_b].insert(insert_position, task)
+
+    return schedule
+
+
+def lookahead_insertion(
+    schedule: Dict[int, List[int]], obj_function: callable, attempts: int = 10, **kwargs
 ):
-    # Lưu trữ thời gian hoàn thành của mỗi task
-    task_completion_milestones: Dict[int, int] = {}
+    """Late stage. Attempt to find the best position to insert a task in"""
+    new_schedule = {machine: sequence for machine, sequence in schedule.items()}
+    current_cost: float = obj_function(schedule=new_schedule, **kwargs)
 
-    # Lưu trữ các mốc thời gian của mỗi máy khi hoàn thành 1 task
-    machine_completion_milestone: Dict[int, int] = {
-        machine: 0 for machine in schedule.keys()
-    }
+    for _ in range(attempts):
+        # Randomly move task
+        candidate = random_move(schedule=new_schedule)
+        candidate_cost: float = obj_function(schedule=candidate, **kwargs)
 
-    for machine, sequence in schedule.items():
-        for idx in range(len(sequence)):
-            # task's process time
-            task = sequence[idx]
-            process_time = tasks[task]["process_times"][machine]
-            setup_time = 0 if idx < 1 else setups[sequence[idx - 1], sequence[idx]]
+        if candidate_cost < current_cost:
+            return candidate
 
-            machine_completion_milestone[machine] += process_time + setup_time
-            task_completion_milestones[task] = machine_completion_milestone[machine]
-
-    return task_completion_milestones
-
-
-def precedence_constraint(
-    schedule: Dict[int, List[int]],
-    task_completion_milestones: Dict[int, int],
-    setups: Dict[Tuple[int, int], int],
-    precedences: Dict[int, Any] = None,
-):
-    # Đầu tiên t sẽ check các máy đang làm những task nào, là cơ sở cho pre vs post để check ràng buộc
-    # t cũng tạo 1 bản chép, và bản chép này là để t ghi lại thời gian thực tế nó làm, nhưng vẫn có bản cũ giữ lại thời gian làm
-    # ví dụ task 1 2s, task 2 3s, thì sau khi xong t vẫn có dữ liệu là task 1 2s, task 2 3s và dữ liệu làm thực tế là task 1 2s task 2 5s.
-    task_to_machine = {task: m for m, seq in schedule.items() for task in seq}
-    actual_completion_times = copy.deepcopy(task_completion_milestones)
-
-    # sửa giá trị pen nếu vi phạm
-    PENALTY_BASE = 10**2
-    penalty = 0
-
-    # xong phần chuẩn bị r, h t vô thì t sẽ check precedence
-    # t giải quyết 2 vấn đề: nếu task k cs ràng buộc, nếu các task trên cùng máy - khác máy
-    # nếu cùng, thì cứ cộng bthg, nhưng nếu trái ràng buộc thì cũng cộng bthg r cộng thêm pen
-    # nếu khác, t phải cho nó chờ
-    for pre, posts in precedences.items():
-        for post in posts:
-            if pre not in task_to_machine or post not in task_to_machine:
-                continue
-
-            machine_pre = task_to_machine[pre]
-            machine_post = task_to_machine[post]
-
-            if machine_pre == machine_post:
-                seq = schedule[machine_pre]
-                idx_pre = seq.index(pre)
-                idx_post = seq.index(post)
-
-                if idx_pre > idx_post: # chỉnh lại cách tính pen linh hoạt chứ k cố định
-                    DISTANCE = abs(idx_pre - idx_post)
-                    penalty += PENALTY_BASE * DISTANCE
-                    
-
-            else:
-                finish_pre = actual_completion_times[pre]
-
-                seq_post = schedule[machine_post]
-                idx_post = seq_post.index(post)
-
-                if idx_post == 0:
-                    start_post = 0
-                else:
-                    prev_task = seq_post[idx_post - 1]
-                    setup_time = setups.get((prev_task, post), 0)
-                    start_post = actual_completion_times[prev_task] + setup_time
-
-                if start_post < finish_pre:
-                    delay = finish_pre - start_post
-                    for k in range(idx_post, len(seq_post)):
-                        cur_task = seq_post[k]
-                        actual_completion_times[cur_task] += delay
-
-    return penalty, actual_completion_times
+    return new_schedule
