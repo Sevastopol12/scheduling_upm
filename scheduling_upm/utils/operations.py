@@ -180,19 +180,29 @@ def apply_resource_constraint(schedule: Dict[int, List[int]],
                 m = task["machine"] #lấy số máy
                  #tính thời gian bắt đầu và kết thúc
                 
-                start_time = max(current_machine_time[m], current_time) + task["setup_time"] #lấy max giữa thời gian máy rảnh và hiện tại + setup time
-                end_time = start_time + task["proc_time"] #thời gian kết thúc = start + process time
-                 
+                task_start = max(current_machine_time[m], current_time) 
+                setup_start = task_start 
+                process_start = task_start + task["setup_time"] 
+                task_end = process_start + task["proc_time"]
+
+                final_schedule[task["task_id"]] = {
+                    "machine": m,
+                    "start": task_start,
+                    "end": task_end,
+                    "setup_start_time": setup_start,
+                    "process_start_time": process_start,
+                    "resource": task["resource"]
+                }
+
                 task_info = {  #chưa thông tin task sau khi schedule
                     "task_id": task["task_id"],
                     "machine": m,
-                    "start": start_time,
-                    "end": end_time,
+                    "start": task_start,
+                    "end": task_end,
                     "resource": task["resource"]
                 }
                 
                 running_tasks.append(task_info) #thêm task vào danh sách đang chạy
-                final_schedule[m].append(task_info) #thêm task vào lịch trả về
                 current_task_index[m] += 1 #cập nhật index task trên máy
                 scheduled_any = True #đánh dấu có task được lên lịch
         
