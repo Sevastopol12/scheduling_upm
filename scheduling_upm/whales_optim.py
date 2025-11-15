@@ -35,8 +35,9 @@ class WhaleOptimizationAlgorithm:
         self.n_machines = n_machines
         self.n_schedules = n_schedules
         self.n_iterations = n_iterations
-        self.precedences = precedences or {}
-        self.energy_constraint = energy_constraint or {}
+        self.precedences = precedences or None
+        self.energy_constraint = energy_constraint or None
+        self.total_resource = total_resource or None
         self.schedules: List[Schedule] = []
         self.best_schedule: Schedule = None
 
@@ -49,7 +50,7 @@ class WhaleOptimizationAlgorithm:
                 tasks=self.tasks,
                 setups=self.setups,
                 precedences=self.precedences,
-                energy_constraint=self.energy_constraint
+                energy_constraint=self.energy_constraint,
             )
             self.schedules.append(Schedule(schedule=schedule, cost=cost))
 
@@ -94,7 +95,7 @@ class WhaleOptimizationAlgorithm:
                     tasks=self.tasks,
                     setups=self.setups,
                     precedences=self.precedences,
-                    energy_constraint=self.energy_constraint
+                    energy_constraint=self.energy_constraint,
                 )
 
                 if candidate_cost < schedule.cost:

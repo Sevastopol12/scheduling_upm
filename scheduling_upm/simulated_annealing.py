@@ -25,9 +25,9 @@ class SimulatedAnnealing:
         self.setups = setups
         self.n_machines = n_machines
         self.n_iterations = n_iterations
-        self.precedences = precedences or {}
-        self.resource = resource or {}
-        self.energy_constraint = energy_constraint or {}
+        self.precedences = precedences or None
+        self.resource = resource or None
+        self.energy_constraint = energy_constraint or None
         self.total_resource = total_resource or None
         self.initial_temp = initial_temp
         self.best_schedule = None
