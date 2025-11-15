@@ -1,6 +1,6 @@
-
 import copy
 from typing import List, Tuple, Dict, Any
+
 
 def objective_function(
     schedule: Dict[int, List[int]],
@@ -22,8 +22,6 @@ def objective_function(
             setups=setups,
             precedences=precedences,
         )
-        if penalty > 0:
-            return penalty
 
     # TODO
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
@@ -35,7 +33,7 @@ def objective_function(
     # Xét thêm những khía cạnh khác, tính cost
 
     # Cost
-    cost = makespan
+    cost = makespan + penalty
     return cost
 
 
@@ -44,6 +42,7 @@ def compute_base_milestones(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
 ):
+    """Calculate base milestone, without constraint"""
     # Lưu trữ thời gian hoàn thành của mỗi task
     task_completion_milestones: Dict[int, int] = {}
 
@@ -71,6 +70,7 @@ def precedence_constraint(
     setups: Dict[Tuple[int, int], int],
     precedences: Dict[int, Any] = None,
 ):
+    """Overwrites current milestones according to precedences"""
     # Đầu tiên t sẽ check các máy đang làm những task nào, là cơ sở cho pre vs post để check ràng buộc
     # t cũng tạo 1 bản chép, và bản chép này là để t ghi lại thời gian thực tế nó làm, nhưng vẫn có bản cũ giữ lại thời gian làm
     # ví dụ task 1 2s, task 2 3s, thì sau khi xong t vẫn có dữ liệu là task 1 2s, task 2 3s và dữ liệu làm thực tế là task 1 2s task 2 5s.
@@ -98,10 +98,11 @@ def precedence_constraint(
                 idx_pre = seq.index(pre)
                 idx_post = seq.index(post)
 
-                if idx_pre > idx_post: # chỉnh lại cách tính pen linh hoạt chứ k cố định
+                if (
+                    idx_pre > idx_post
+                ):  # chỉnh lại cách tính pen linh hoạt chứ k cố định
                     DISTANCE = abs(idx_pre - idx_post)
                     penalty += PENALTY_BASE * DISTANCE
-                    
 
             else:
                 finish_pre = actual_completion_times[pre]
