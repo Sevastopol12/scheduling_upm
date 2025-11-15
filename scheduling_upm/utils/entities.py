@@ -18,10 +18,9 @@ class Task:
         self.process_times = process_times  # list thời gian trên mỗi máy
         self.resource = resource
         self.weight = weight  # 1-10
-        self.task_type = task_type  # "normal", "mid", "late", "exploit"
     
     def __repr__(self):
-        return f"Task({self.task_id}, weight={self.weight}, type={self.task_type})"
+        return f"Task({self.task_id}, weight={self.weight})"
 
 
 class Machine:

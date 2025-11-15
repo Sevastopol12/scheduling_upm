@@ -1,7 +1,5 @@
 import random
 from typing import List, Dict, Any
-from .evaluation import calculate_machine_loads
-
 
 def random_move(
     schedule: Dict[int, List[Any]], n_moves: int = 1
@@ -118,31 +116,3 @@ def lookahead_insertion(
             return candidate
 
     return new_schedule
-
-def balance_schedule_by_load(schedule, n_machines, tasks):
-    """
-    Điều chỉnh schedule: tasks mid/late/exploit được move sang máy có load thấp nhất
-
-    Args:
-        schedule: dict {task_id: machine_id}
-        n_machines: số máy
-        tasks: dict tasks
-
-    return dict: schedule đã được cân bằng
-    """
-    loads = calculate_machine_loads(schedule, n_machines, tasks)
-    min_load_machine = loads.index(min(loads))
-
-    # Lặp qua từng task
-    for task_id, machine_id in list(schedule.items()):
-        task = tasks[task_id]
-        task_type = task.get("task_type", "normal")
-
-        # Điều chỉnh schedule theo condition
-        if task_type in ["mid", "late", "exploit"]:
-            schedule[task_id] = min_load_machine
-            # update loads
-            loads = calculate_machine_loads(schedule, n_machines, tasks)
-            min_load_machine = loads.index(min(loads))
-    
-    return schedule

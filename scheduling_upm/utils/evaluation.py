@@ -34,8 +34,12 @@ def objective_function(
     # TODO
     # Xét thêm những khía cạnh khác, tính cost
 
+    # Thêm penalty cho load balacing
+    std_dev = calculate_load_standard_deviation(schedule, len(schedule))
+    load_penalty = 100 * std_dev
+
     # Cost
-    cost = makespan
+    cost = makespan + load_penalty
     return cost
 
 
@@ -121,42 +125,36 @@ def precedence_constraint(
 
     return 0, actual_completion_times
 
-def calculate_machine_loads(shchedule, n_machines, tasks):
+def calculate_machine_loads(schedule, n_machines, tasks):
     """
     Tính tổng load (weighted duration) của mỗi machine
 
-    Args:
-        schedule: dict {task_id: machine_id}
-        machines: số máy
-        tasks: dict {task_id: {process_times, resource, weight, task_type}}
+    schedule: dict {machine_id: [task_ids]}
+    n_machines: số máy
+    tasks: dict {task_id: {process_times, resource, weight}}
 
     Return list: tổng load của mỗi máy
     """
     machine_loads = [0.0] * n_machines
 
-    for task_id, machine_id in shchedule.items():
-        if task_id in shchedule:
+    for machine_id, task_list in schedule.items():
+        for task_id in task_list:
             task = tasks[task_id]
-            # Load = pik * weight
+            # Load = process_time * weight
             process_time = task["process_times"][machine_id]
             weight = task.get("weight", 1)
             machine_loads[machine_id] += process_time * weight
-        return machine_loads
+    return machine_loads
     
 def calculate_load_standard_deviation(schedule, n_machines, tasks):
     """
-    Tính standard deviation của load các máy
+    Tính std_dev của load các máy
 
-    Args:
-        schedule: dict {task_id: machine_id}
-        n_machines: list các máy
-        tasks: list các task
-    Return float: standard deviation của load
+    schedule: dict {machine_id: [task_ids]}
+    n_machines: số máy
+    dict tasks
+
+    Return float: std_dev của load
     """
     loads = calculate_machine_loads(schedule, n_machines, tasks)
     return float(np.std(loads))
-
-def calculate_load_variance(schedule, n_machines, tasks):
-    """Tính variance (bình phương của std_dev)"""
-    std_dev = calculate_load_standard_deviation(schedule, n_machines, tasks)
-    return std_dev ** 2

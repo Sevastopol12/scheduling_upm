@@ -2,7 +2,7 @@ import math
 import random
 import copy
 from typing import Dict, Any, Tuple, Set, List
-from .strategies.sa_strategy import random_explore, transition, exploit
+from .strategies.sa_strategy import random_explore, exploit
 from .utils.operations import generate_schedule
 from .utils.evaluation import objective_function
 from .utils.entities import Schedule
@@ -57,11 +57,6 @@ class SimulatedAnnealing:
             # Explore
             if probability < 0.5 * (1 - progress):
                 candidate_schedule = random_explore(
-                    schedule=self.current_schedule.schedule, tasks=self.tasks
-                )
-            # Transition
-            elif probability < 0.9 * (1 - progress):
-                candidate_schedule = transition(
                     schedule=self.current_schedule.schedule, tasks=self.tasks
                 )
             # Exploit

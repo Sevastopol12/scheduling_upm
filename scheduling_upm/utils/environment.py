@@ -28,12 +28,10 @@ def generate_environment(
         times: List[int] = process_time_on_each_machine(n_machines=n_machines)
         resource: int = random.randint(0, 120)
         weight: int = random.randint(1, 10)
-        task_type: str = random.choice(["normal", "mid", "late", "exploit"])
         tasks[t] = {
             "process_times": times,
             "resource": resource,
-            "weight": weight,
-            "task_type": task_type
+            "weight": weight
         }
 
     # Sequence-dependent setup times between tasks

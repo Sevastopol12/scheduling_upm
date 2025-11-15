@@ -8,7 +8,6 @@ from ..utils.operations import (
     shuffle_machine,
     intra_machine_swap,
 )
-from scheduling_upm.utils.evaluation import calculate_load_standard_deviation
 
 
 def random_explore(
@@ -81,7 +80,3 @@ def discrete_shrinking_mechanism(
         new_schedule = operation(copy.deepcopy(new_schedule))
 
     return new_schedule
-
-# Trả về obj_value của schedule
-def evaluate_schedule(schedule, n_machines, tasks):
-    return calculate_load_standard_deviation(schedule, n_machines, tasks)

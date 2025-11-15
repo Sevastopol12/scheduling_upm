@@ -9,8 +9,6 @@ from .strategies.woa_strategy import (
 )
 from .utils.evaluation import objective_function
 from .utils.entities import Schedule
-from scheduling_upm.utils.evaluation import calculate_load_standard_deviation
-
 
 class WhaleOptimizationAlgorithm:
     """
@@ -42,11 +40,11 @@ class WhaleOptimizationAlgorithm:
         """Initializes the pod of whales"""
         for _ in range(self.n_schedules):
             schedule = generate_schedule(tasks=self.tasks, n_machines=self.n_machines)
-            # Thay obj_func sang cal_load_standard_deviation
-            cost = calculate_load_standard_deviation(
+            cost = objective_function(
                 schedule=schedule,
-                n_machines=self.n_machines,
-                tasks=self.tasks
+                tasks=self.tasks,
+                setups=self.setups,
+                precedences=self.precedences,
             )
             self.schedules.append(Schedule(schedule=schedule, cost=cost))
 
@@ -86,10 +84,11 @@ class WhaleOptimizationAlgorithm:
                         best_schedule=self.best_schedule.schedule,
                     )
 
-                candidate_cost = calculate_load_standard_deviation(
+                candidate_cost = objective_function(
                     schedule=candidate_schedule,
-                    n_machines=self.n_machines,
-                    tasks=self.tasks
+                    tasks=self.tasks,
+                    setups=self.setups,
+                    precedences=self.precedences,
                 )
 
                 if candidate_cost < schedule.cost:
