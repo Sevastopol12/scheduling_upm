@@ -58,7 +58,6 @@ def exploit(
 ):
     # Exploit
     operation_pool: List[Tuple[callable, Dict]] = [
-        (random_move, {"schedule": schedule, "n_moves": random.randint(1, 3)}),
         (intra_machine_swap, {"schedule": schedule}),
         (
             inter_machine_swap,
@@ -69,7 +68,7 @@ def exploit(
             {
                 "schedule": schedule,
                 "tasks": tasks,
-                "attempts": random.randint(10, 20),
+                "attempts": random.randint(20, 30),
                 "obj_function": obj_function,
                 **kwargs,
             },

@@ -37,6 +37,10 @@ def objective_function(
 
     # Cost
     cost = makespan + deadlock_penalty + process_penalty + setup_penalty
+    print(f"makespan: {makespan}")
+    print(f"deadlock_penalty: {deadlock_penalty}")
+    print(f"process_penalty: {process_penalty}")
+    print(f"setup_penalty: {setup_penalty}")
     return cost
 
 

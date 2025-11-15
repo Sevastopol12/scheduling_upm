@@ -23,8 +23,8 @@ class SimulatedAnnealing:
         self.setups = setups
         self.n_machines = n_machines
         self.n_iterations = n_iterations
-        self.precedences = precedences or {}
-        self.resources = resources or {}
+        self.precedences = precedences or None
+        self.resources = resources or None
         self.initial_temp = initial_temp
         self.best_schedule = None
         self.current_schedule = None

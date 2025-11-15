@@ -34,8 +34,8 @@ class WhaleOptimizationAlgorithm:
         self.n_machines = n_machines
         self.n_schedules = n_schedules
         self.n_iterations = n_iterations
-        self.precedences = precedences or {}
-        self.resources = resources or {}
+        self.precedences = precedences or None
+        self.resources = resources or None
         self.schedules: List[Schedule] = []
         self.best_schedule: Schedule = None
         self.history = []
