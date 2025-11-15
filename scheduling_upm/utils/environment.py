@@ -1,5 +1,6 @@
-from typing import List, Dict, Any, Tuple
 import random
+from typing import List, Dict, Any, Tuple
+from collections import defaultdict
 
 
 def generate_environment(
@@ -36,18 +37,26 @@ def generate_environment(
     setup_time = generate_sequence_dependent_constraint(n_tasks=n_tasks)
 
     # phần setup_time tạo ở đây nên t cx tạo cái precedences ở đây luôn
-    precedences = generate_precedence_constraints(n_tasks = n_tasks) #tạo precedence mà ở đây lấy giá trị tham số n_task mà phúc dương đã tạo trong hàm này làm giá trị đầu vào cho hàm được gọi
-    
+    precedences = generate_precedence_constraints(
+        n_tasks=n_tasks
+    )  # tạo precedence mà ở đây lấy giá trị tham số n_task mà phúc dương đã tạo trong hàm này làm giá trị đầu vào cho hàm được gọi
+
+    # Energy consumption
+    energy_constraint = generate_energy_constraint(
+        n_machines=n_machines, n_tasks=n_tasks
+    )
     return {
         "n_tasks": n_tasks,
         "n_machines": n_machines,
         "tasks": tasks,
         "setups": setup_time,
         "precedences": precedences,
+        "energy_constraint": energy_constraint,
     }
 
 
 def process_time_on_each_machine(n_machines: int) -> List[int]:
+    """Generate task's process time on each machine"""
     times: List[int] = []
     for _ in range(n_machines):
         # Performance coefficient
@@ -55,6 +64,18 @@ def process_time_on_each_machine(n_machines: int) -> List[int]:
         base_process_time: int = random.randint(5, 30)
         times.append(max(1, int(base_process_time * modifier)))
     return times
+
+
+def energy_usage_on_each_machine(n_machines: int) -> List[int]:
+    """Generate task's energy usages on each machine"""
+    usages_by_machine: List[int] = []
+    for _ in range(n_machines):
+        # Performance coefficient
+        modifier: float = random.choice([0.6, 0.8, 1.0, 1.2, 1.6])
+        energy_usages: int = random.randint(5, 20)
+        usages_by_machine.append(int(energy_usages * modifier))
+
+    return usages_by_machine
 
 
 def generate_sequence_dependent_constraint(n_tasks: int) -> Dict[Tuple[int, int], int]:
@@ -75,28 +96,49 @@ def generate_sequence_dependent_constraint(n_tasks: int) -> Dict[Tuple[int, int]
             )
     return setup_time
 
+
 # hàm khởi tạo precedence nha - thứ tự ưu tiên các công việc
-def generate_precedence_constraints(n_tasks: int) -> Dict[int,Any]: # ae mình thống nhất Dict nên ở đây t trả về 1 dict với id của tast và các danh sách task thực hiện sau nó
+def generate_precedence_constraints(
+    n_tasks: int,
+) -> Dict[int, Any]:
+    # ae mình thống nhất Dict nên ở đây t trả về 1 dict với id của tast và các danh sách task thực hiện sau nó
     precedence: Dict[int, Any] = {}
-    max_relations = int ((n_tasks *(n_tasks -1))/2) # công thức tính số ràng buộc tối đa có thể có tương ứng với n_task ha
-    num_relations = random.randint(1,max_relations //3) # do hồi bữa phúc dương kêu là nếu cho random tới max relation luôn thì nhiều quá nên t giảm bớt v, lấy tối đa của nó là 1/3 ha
+    # công thức tính số ràng buộc tối đa có thể có tương ứng với n_task ha
+    max_relations = int((n_tasks * (n_tasks - 1)) / 2)
+    # do hồi bữa phúc dương kêu là nếu cho random tới max relation luôn thì nhiều quá nên t giảm bớt v, lấy tối đa của nó là 1/3 ha
+    num_relations = random.randint(1, max_relations // 3)
 
     for new_relations in range(num_relations):
         a, b = random.sample(range(n_tasks), 2)
         if a > b:
             a, b = b, a  # kiểu t muốn là chiều xét của nó là 1 chiều thôi í
-        
+
         if a not in precedence:
-            precedence[a] = []  
+            precedence[a] = []
 
         if b not in precedence[a]:
-            if b in precedence and a in precedence[b]: 
-                continue # checkvar nhẹ lỡ có a trước b rồi mà còn b trước a nữa thì cho cút
-            precedence[a] = precedence [a] + [b]       
+            if b in precedence and a in precedence[b]:
+                continue  # checkvar nhẹ lỡ có a trước b rồi mà còn b trước a nữa thì cho cút
+            precedence[a] = precedence[a] + [b]
 
-    return precedence        
+    return precedence
 
 
-        
+def generate_energy_constraint(n_machines: int = 2, n_tasks: int = 4) -> Dict[str, Any]:
+    energy_cap: int = int(n_machines * 10)  # random.choice([0.7, 0.8, 0.9, 1.0])
+
+    energy_constraint: Dict[str, Any] = {
+        "energy_cap": energy_cap,
+        "energy_usages": defaultdict(int),
+    }
+
+    for task in range(n_tasks):
+        energy_constraint["energy_usages"][task] = energy_usage_on_each_machine(
+            n_machines=n_machines
+        )
+
+    return energy_constraint
+
+
 if __name__ == "__main__":
     generate_environment()

@@ -1,5 +1,6 @@
 import copy
 from typing import List, Tuple, Dict, Any
+from collections import defaultdict
 
 
 def objective_function(
@@ -7,18 +8,26 @@ def objective_function(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
     precedences: Dict[int, Any] = None,
+    energy_constraint: Dict[str, Any] = None,
     total_resource: int = None,
 ) -> Tuple:
     """Objective: Minimize makespan"""
 
-    # Compute milestones of task's completion time . Accouns for setups
-    task_completion_milestones = compute_base_milestones(
-        schedule=schedule, tasks=tasks, setups=setups
+    # Áp dụng ràng buộc resource
+    task_completion_milestones = (
+        apply_resource_constraint(
+            schedule=schedule,
+            tasks=tasks,
+            setups=setups,
+            total_resource=total_resource,
+        )
+        if total_resource is not None
+        else compute_base_milestones(schedule=schedule, tasks=tasks, setups=setups)
     )
-    precedence_penalty = 0
 
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
-    if precedences:
+    precedence_penalty = 0
+    if precedences is not None:
         precedence_penalty, task_completion_milestones = precedence_constraint(
             schedule=schedule,
             task_completion_milestones=task_completion_milestones,
@@ -26,24 +35,25 @@ def objective_function(
             precedences=precedences,
         )
 
-    # Áp dụng ràng buộc resource
-    if total_resource is not None:
-        resource_schedule = apply_resource_constraint(
-            schedule=schedule, tasks=tasks, setups=setups, total_resource=total_resource
+    # Energy consumption constraint
+    energy_exceeds_penalty = 0
+    if energy_constraint is not None:
+        energy_exceeds_penalty = energy_consumption_over_time(
+            task_milestones=task_completion_milestones,
+            energy_constraint=energy_constraint,
         )
 
-        # Tính makespan từ resource schedule
-        makespan = max(info["complete_time"] for info in resource_schedule.values())
-    else:
-        # Nếu không có resource constraint, dùng milestones thông thường
-        makespan = max(task_completion_milestones.values())
-
-    # TODO
-    # Xét thêm những khía cạnh khác, tính cost
+    # Makespan
+    makespan = compute_makespan(task_milestones=task_completion_milestones)
 
     # Cost
-    cost = makespan + precedence_penalty
+    cost = makespan + precedence_penalty + energy_exceeds_penalty
     return cost
+
+
+def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
+    makespan = max(task["complete_time"] for task in task_milestones.values())
+    return makespan
 
 
 def compute_base_milestones(
@@ -53,10 +63,12 @@ def compute_base_milestones(
 ):
     """Calculate base milestone, without constraint"""
     # Lưu trữ thời gian hoàn thành của mỗi task
-    task_completion_milestones: Dict[int, int] = {}
+    task_milestones: Dict[int, int] = {}
 
-    # Lưu trữ các mốc thời gian của mỗi máy khi hoàn thành 1 task
-    machine_completion_milestone: Dict[int, int] = {
+    # Lưu trữ các mốc thời gian hoàn thành mỗi task của máy
+    # E.g: { machine: [task_1_complete_time, task_2_complete_time,.etc],.etc }
+
+    machine_milestones: Dict[int, List[int]] = {
         machine: 0 for machine in schedule.keys()
     }
 
@@ -67,10 +79,23 @@ def compute_base_milestones(
             process_time = tasks[task]["process_times"][machine]
             setup_time = 0 if idx < 1 else setups[sequence[idx - 1], sequence[idx]]
 
-            machine_completion_milestone[machine] += process_time + setup_time
-            task_completion_milestones[task] = machine_completion_milestone[machine]
+            # Start time
+            current_runtime: int = 0 if idx < 1 else machine_milestones[machine]
 
-    return task_completion_milestones
+            # Update new complete time
+            machine_milestones[machine] += process_time + setup_time
+
+            # Store task info
+            task_milestones[task] = {
+                "start_setup": current_runtime,
+                "start_process": current_runtime + setup_time,
+                "complete_time": machine_milestones[machine],
+                "machine": machine,
+                "idx_on_machine": idx,
+            }
+
+    del machine_milestones
+    return task_milestones
 
 
 def precedence_constraint(
@@ -79,7 +104,7 @@ def precedence_constraint(
     setups: Dict[Tuple[int, int], int],
     precedences: Dict[int, Any] = None,
 ):
-    """Overwrites current milestones according to precedences"""
+    """Overwrites current milestones with respect to precedences"""
     # Đầu tiên t sẽ check các máy đang làm những task nào, là cơ sở cho pre vs post để check ràng buộc
     # t cũng tạo 1 bản chép, và bản chép này là để t ghi lại thời gian thực tế nó làm, nhưng vẫn có bản cũ giữ lại thời gian làm
     # ví dụ task 1 2s, task 2 3s, thì sau khi xong t vẫn có dữ liệu là task 1 2s, task 2 3s và dữ liệu làm thực tế là task 1 2s task 2 5s.
@@ -87,7 +112,7 @@ def precedence_constraint(
     actual_completion_times = copy.deepcopy(task_completion_milestones)
 
     # sửa giá trị pen nếu vi phạm
-    PENALTY_BASE = 10**10
+    PENALTY_BASE = int(1e3)
     penalty = 0
 
     # xong phần chuẩn bị r, h t vô thì t sẽ check precedence
@@ -114,25 +139,84 @@ def precedence_constraint(
                     penalty += PENALTY_BASE * DISTANCE
 
             else:
-                finish_pre = actual_completion_times[pre]
+                finish_pre = actual_completion_times[pre]["complete_time"]
 
                 seq_post = schedule[machine_post]
                 idx_post = seq_post.index(post)
 
                 if idx_post == 0:
                     start_post = 0
+
                 else:
                     prev_task = seq_post[idx_post - 1]
                     setup_time = setups.get((prev_task, post), 0)
-                    start_post = actual_completion_times[prev_task] + setup_time
+                    start_post = (
+                        actual_completion_times[prev_task]["complete_time"] + setup_time
+                    )
 
                 if start_post < finish_pre:
                     delay = finish_pre - start_post
                     for k in range(idx_post, len(seq_post)):
                         cur_task = seq_post[k]
-                        actual_completion_times[cur_task] += delay
+                        actual_completion_times[cur_task]["start_setup"] += delay
+                        actual_completion_times[cur_task]["start_process"] += delay
+                        actual_completion_times[cur_task]["complete_time"] += delay
 
     return penalty, actual_completion_times
+
+
+def energy_consumption_over_time(
+    task_milestones: Dict[int, Dict[str, Any]],
+    energy_constraint: Dict[str, Any],
+) -> int:
+    """Calculate total penalty per energy exceeded in accounts of all machine during processing"""
+
+    energy_cap: int = energy_constraint["energy_cap"]
+    energy_usages: Dict[int, List[int]] = energy_constraint["energy_usages"]
+
+    # Events log of  time: consume energy / release
+    events_log: Dict[int, int] = defaultdict(int)
+
+    # Populate events lists
+    for task, properties in task_milestones.items():
+        # Get task's energy usage
+        machine: int = properties["machine"]
+        usage: int = energy_usages[task][machine]
+
+        # Add events
+        events_log[properties["start_setup"]] += usage
+        events_log[properties["complete_time"]] -= usage
+
+    exceeds_penalty: int = total_penalty_on_violation(
+        events_log=events_log, energy_cap=energy_cap
+    )
+
+    return exceeds_penalty
+
+
+def total_penalty_on_violation(events_log: Dict[int, int], energy_cap: int) -> int:
+    """Penalize exceeded usages"""
+    # List of events start time
+    sorted_event_start_times: list[int] = sorted(events_log.keys())
+    current_usages: int = 0
+    exceeds_penalty: int = 0
+
+    for idx in range(len(sorted_event_start_times)):
+        start_time: int = sorted_event_start_times[idx]
+        end_time: int = (
+            sorted_event_start_times[idx + 1]
+            if idx + 1 < len(sorted_event_start_times)
+            else start_time
+        )
+        current_usages += events_log[start_time]
+
+        # Penalize per unit exceeds * duration
+        if current_usages > energy_cap:
+            duration: int = end_time - start_time
+            penalty_per_unit_time: int = current_usages - energy_cap
+            exceeds_penalty += penalty_per_unit_time * duration
+
+    return exceeds_penalty
 
 
 def apply_resource_constraint(
@@ -141,24 +225,25 @@ def apply_resource_constraint(
     setups: Dict[Tuple[int, int], int],
     total_resource: int,
 ) -> Dict[int, Dict[str, Any]]:
+    """Calculate True completion time with respect to resource distribution. Generate milestones on executtion"""
+
     pool_resource = total_resource  # lượng resource hiện có = tổng resource
-    running_tasks: List[
-        Dict[str, Any]
-    ] = []  # Danh sách các task đang chạy sau khi cấp resource
+    # Danh sách các task đang chạy sau khi cấp resource
+    running_tasks: List[Dict[str, Any]] = []
     current_time = 0  # Thời gian hiện tại
-    current_task_index = {m: 0 for m in schedule.keys()}  # theo dõi task của mỗi máy
-    final_schedule: Dict[int, List[Dict[str, Any]]] = {
-        m: [] for m in schedule.keys()
-    }  # lịch trả về
+    # theo dõi task của mỗi máy
+    current_task_index = {m: 0 for m in schedule.keys()}
+    # lịch trả về
+    final_schedule: Dict[int, List[Dict[str, Any]]] = {m: [] for m in schedule.keys()}
     current_machine_time = {m: 0 for m in schedule.keys()}  # thời gian rảnh
 
     total_tasks = sum(len(schedule[m]) for m in schedule)  # đếm tổng số task
     completed_tasks = 0  # dùng để dừng vòng lặp
 
-    while completed_tasks < total_tasks:  # lặp đến khi hoàn thành tất cả task
-        finished_tasks = [
-            t for t in running_tasks if t["end"] <= current_time
-        ]  # tìm task đã hoàn thành (current time > end thì task đã xong)
+    # lặp đến khi hoàn thành tất cả task
+    while completed_tasks < total_tasks:
+        # tìm task đã hoàn thành (current time > end thì task đã xong)
+        finished_tasks = [t for t in running_tasks if t["end"] <= current_time]
         for t in finished_tasks:
             pool_resource += t["resource"]  # trả lại resource
             running_tasks.remove(t)  # xóa task đã xong khỏi danh sách đang chạy
@@ -173,18 +258,19 @@ def apply_resource_constraint(
                 continue
 
             # kiểm tra máy m có đang chạy task không
-            if any(
-                rt["machine"] == m for rt in running_tasks
-            ):  # nếu đang chạy thì bỏ qua
+            if any(rt["machine"] == m for rt in running_tasks):
+                # nếu đang chạy thì bỏ qua
                 continue
 
             # kiểm tra máy có đang rảnh không
             if current_machine_time[m] > current_time:
                 continue
+
             # lấy thông tin
             task_id = schedule[m][idx]
             needed_resource = tasks[task_id]["resource"]
             proc_time = tasks[task_id]["process_times"][m]
+
             # tính setup time chuyển đổi từ task trước đó sang task hiện tại
             setup_time = 0
             if idx > 0:
@@ -201,10 +287,8 @@ def apply_resource_constraint(
                     "index": idx,
                 }
             )
-
-        scheduled_any = (
-            False  # biến kiểm tra có task nào được lên lịch trong lần lặp này không
-        )
+        # biến kiểm tra có task nào được lên lịch trong lần lặp này không
+        scheduled_any = False
         for task in ready_tasks:  # duyệt qua các task sẵn sàng
             if task["resource"] <= pool_resource:  # nếu đủ resource để chạy task
                 pool_resource -= task["resource"]  # trừ resource của pool
@@ -217,7 +301,6 @@ def apply_resource_constraint(
                 task_end = process_start + task["proc_time"]
 
                 final_schedule[task["task_id"]] = {
-                    "start": task_start,
                     "start_setup": setup_start,
                     "start_process": process_start,
                     "complete_time": task_end,
@@ -236,18 +319,17 @@ def apply_resource_constraint(
                 current_task_index[m] += 1  # cập nhật index task trên máy
                 scheduled_any = True  # đánh dấu có task được lên lịch
 
-        if running_tasks:  # nếu có task đang chạy
-            current_time = min(
-                t["end"] for t in running_tasks
-            )  # nhảy đến thời điểm task sớm nhất kết thúc
-        elif (
-            not scheduled_any
-        ):  # nếu không có task đang chạy và không có task nào được lên lịch
+        # nếu có task đang chạy
+        if running_tasks:
+            # nhảy đến thời điểm task sớm nhất kết thúc
+            current_time = min(t["end"] for t in running_tasks)
+        # nếu không có task đang chạy và không có task nào được lên lịch
+        elif not scheduled_any:
             next_times = [
                 current_machine_time[m]
                 for m in schedule.keys()  # lấy danh sách thời gian rảnh cua các máy còn task chưa schedule
                 if current_task_index[m] < len(schedule[m])
-            ]  #
+            ]
             if next_times:
                 current_time = min(next_times)  # nhảy đến thời gian rảnh sớm nhất
             else:
