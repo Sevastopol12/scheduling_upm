@@ -14,9 +14,10 @@ def objective_function(
     task_completion_milestones = compute_base_milestones(
         schedule=schedule, tasks=tasks, setups=setups
     )
+    precedence_penalty = 0
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
     if precedences:
-        penalty, task_completion_milestones = precedence_constraint(
+        precedence_penalty, task_completion_milestones = precedence_constraint(
             schedule=schedule,
             task_completion_milestones=task_completion_milestones,
             setups=setups,
@@ -33,7 +34,7 @@ def objective_function(
     # Xét thêm những khía cạnh khác, tính cost
 
     # Cost
-    cost = makespan + penalty
+    cost = makespan + precedence_penalty
     return cost
 
 
