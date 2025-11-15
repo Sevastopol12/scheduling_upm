@@ -31,6 +31,7 @@ def objective_function(
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
 
     # Energy consumption penalty
+    energy_exceeds_penalty = 0
     if energy_constraint is not None:
         energy_exceeds_penalty = energy_consumption_over_time(
             task_milestones=task_completion_milestones,
