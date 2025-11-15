@@ -24,7 +24,8 @@ class WhaleOptimizationAlgorithm:
         n_schedules: int = 10,
         n_iterations: int = 1000,
         precedences: Dict[int, Set] = None,
-        energy_constraint: Dict[str, Any] = None
+        energy_constraint: Dict[str, Any] = None,
+        total_resource: int = None,
     ):
         if n_machines <= 0 or n_schedules <= 0:
             raise ValueError()

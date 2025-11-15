@@ -117,3 +117,4 @@ def lookahead_insertion(
             return candidate
 
     return new_schedule
+

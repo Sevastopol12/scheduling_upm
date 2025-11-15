@@ -17,6 +17,7 @@ class SimulatedAnnealing:
         precedences: Dict[int, Set] = None,
         resource: Dict[str, Any] = None,
         energy_constraint: Dict[str, Any] = None,
+        total_resource: Dict[str, Any] = None,
         n_iterations: int = 1000,
         initial_temp: float = 1000.0,
     ):
@@ -27,6 +28,7 @@ class SimulatedAnnealing:
         self.precedences = precedences or {}
         self.resource = resource or {}
         self.energy_constraint = energy_constraint or {}
+        self.total_resource = total_resource or None
         self.initial_temp = initial_temp
         self.best_schedule = None
         self.current_schedule = None
@@ -76,6 +78,7 @@ class SimulatedAnnealing:
                         "precedences": self.precedences,
                         "setups": self.setups,
                         "energy_constraint": self.energy_constraint,
+                        "total_resource": self.total_resource,
                     },
                 )
 
@@ -85,6 +88,7 @@ class SimulatedAnnealing:
                 setups=self.setups,
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
+                total_resource=self.total_resource,
             )
 
             acp: float = self.acceptance_probability(
@@ -104,6 +108,7 @@ class SimulatedAnnealing:
                     new_schedule=copy.deepcopy(candidate_schedule),
                     new_cost=candidate_cost,
                 )
+
             self.history.append(
                 {
                     "iteration": iter,
