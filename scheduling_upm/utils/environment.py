@@ -20,7 +20,7 @@ def generate_environment(
         setup: dict of (task, task): Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
         VD: setup_time từ task a->b, được biểu diễn là (a,b) sẽ khác setup_time từ task a->c (a,c) và ngược lại
     """
-    if seed is not None:
+    if seed is not None: #keep task generation consistent
         random.seed(seed)
     # Generate tasks
     tasks: Dict[int, Any] = {}
