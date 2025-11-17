@@ -37,11 +37,14 @@ def objective_function(
 
     # Cost
     cost = makespan + deadlock_penalty + process_penalty + setup_penalty
-    print(f"makespan: {makespan}")
-    print(f"deadlock_penalty: {deadlock_penalty}")
-    print(f"process_penalty: {process_penalty}")
-    print(f"setup_penalty: {setup_penalty}")
-    return cost
+    print(deadlock_penalty)
+    return {
+        "total_cost": cost,
+        "makespan": makespan,
+        "deadlock_penalty": deadlock_penalty,
+        "process_penalty": process_penalty,
+        "setup_penalty": setup_penalty,
+    }
 
 
 def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
@@ -119,7 +122,7 @@ def apply_precedences_constraint(
                     new_task_milestones[precedence_task]["process_machine"]
                     == new_task_milestones[task]["process_machine"]
                 ):
-                    deadlock_penalty += int(10e2) * (
+                    deadlock_penalty += int(1e3) * (
                         precedence_complete_time - task_start_time
                     )
 

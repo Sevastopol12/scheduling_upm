@@ -1,4 +1,5 @@
 import random
+import copy
 from typing import Dict, Any, Tuple, List
 from ..utils.operations import (
     generate_schedule,
@@ -7,24 +8,19 @@ from ..utils.operations import (
     shuffle_machine,
     intra_machine_swap,
     lookahead_insertion,
+    partial_precedence_repair,
 )
 
 
 def random_explore(
-    schedule: Dict[int, List[int]],
-    tasks: Dict[int, Any],
-    obj_function: callable,
-    **kwargs,
+    schedule: Dict[int, List[int]], tasks: Dict[int, Any], n_ops: int = 1
 ):
     # Explore
     operation_pool: List[Tuple[callable, Dict]] = [
-        (random_move, {"schedule": schedule, "n_moves": random.randint(1, 10)}),
-        (intra_machine_swap, {"schedule": schedule}),
+        (random_move, {"schedule": schedule}),
         (generate_schedule, {"tasks": tasks, "n_machines": len(schedule.keys())}),
-        (
-            inter_machine_swap,
-            {"schedule": schedule, "n_swaps": random.randint(1, 10)},
-        ),
+        (inter_machine_swap, {"schedule": schedule}),
+        (intra_machine_swap, {"schedule": schedule}),
         (
             shuffle_machine,
             {
@@ -32,20 +28,10 @@ def random_explore(
                 "n_machines": random.randint(1, len(schedule.keys()) // 2),
             },
         ),
-        (
-            lookahead_insertion,
-            {
-                "schedule": schedule,
-                "tasks": tasks,
-                "attempts": random.randint(10, 20),
-                "obj_function": obj_function,
-                **kwargs,
-            },
-        ),
     ]
-
-    operation, kwargs = random.choice(operation_pool)
-    new_schedule = operation(**kwargs)
+    for _ in range(n_ops):
+        operation, kwargs = random.choice(operation_pool)
+        new_schedule = operation(**kwargs)
 
     return new_schedule
 
@@ -54,15 +40,15 @@ def exploit(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     obj_function: callable,
-    **kwargs,
+    n_ops: int = 1,
+    precedences: Dict[int, List[int]] = None,
+    setups: List[Tuple[int, int]] = None,
+    resources: Dict[int, Any] = None,
 ):
     # Exploit
     operation_pool: List[Tuple[callable, Dict]] = [
         (intra_machine_swap, {"schedule": schedule}),
-        (
-            inter_machine_swap,
-            {"schedule": schedule, "n_swaps": random.randint(1, 3)},
-        ),
+        (inter_machine_swap, {"schedule": schedule}),
         (
             lookahead_insertion,
             {
@@ -70,12 +56,23 @@ def exploit(
                 "tasks": tasks,
                 "attempts": random.randint(20, 30),
                 "obj_function": obj_function,
-                **kwargs,
+                "precedences": precedences,
+                "setups": setups,
+                "resources": resources,
             },
         ),
     ]
 
-    operation, kwargs = random.choice(operation_pool)
-    new_schedule = operation(**kwargs)
+    for _ in range(n_ops):
+        operation, kwargs = random.choice(operation_pool)
+        new_schedule = operation(**kwargs)
+
+    # Partial fix
+    new_schedule = partial_precedence_repair(
+        schedule=new_schedule,
+        tasks=tasks,
+        precedences=precedences,
+        setups=setups,
+    )
 
     return new_schedule

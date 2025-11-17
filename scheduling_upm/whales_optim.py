@@ -53,7 +53,7 @@ class WhaleOptimizationAlgorithm:
             self.schedules.append(Schedule(schedule=schedule, cost=cost))
 
         self.best_schedule = copy.deepcopy(
-            min(self.schedules, key=lambda schedule: schedule.cost)
+            min(self.schedules, key=lambda schedule: schedule.cost["total_cost"])
         )
 
     def optimize(self):
@@ -101,13 +101,16 @@ class WhaleOptimizationAlgorithm:
                     resources=self.resources,
                 )
 
-                if candidate_cost < agent_schedule.cost:
+                if candidate_cost["total_cost"] < agent_schedule.cost["total_cost"]:
                     agent_schedule.update(
                         new_schedule=copy.deepcopy(candidate_schedule),
                         new_cost=candidate_cost,
                     )
 
-                if agent_schedule.cost < self.best_schedule.cost:
+                if (
+                    agent_schedule.cost["total_cost"]
+                    < self.best_schedule.cost["total_cost"]
+                ):
                     self.best_schedule.update(
                         new_schedule=copy.deepcopy(agent_schedule.schedule),
                         new_cost=agent_schedule.cost,

@@ -104,7 +104,9 @@ def generate_precedences_constraint(n_tasks: int):
             task_a: Set[task_b, task_c,...]
         }
     """
-    n_precedences = random.randint(1, int(n_tasks * 0.5))
+    n_precedences = int(
+        ((n_tasks * (n_tasks - 1)) / 2) * 0.3
+    )  # random.randint(1, int(n_tasks * 0.5))
     samples = range(n_tasks)
     precedences: Dict[int, Set[int]] = {}
 

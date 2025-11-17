@@ -8,6 +8,7 @@ from ..utils.operations import (
     shuffle_machine,
     intra_machine_swap,
     lookahead_insertion,
+    partial_precedence_repair,
 )
 
 
@@ -16,15 +17,12 @@ def random_explore(
     schedule: Dict[int, List[int]],
 ) -> Dict[int, List[int]]:
     operation_pool: List[Tuple[Callable, Dict]] = [
-        (random_move, {"schedule": schedule, "n_moves": random.randint(1, 10)}),
+        (random_move, {"schedule": schedule}),
+        (intra_machine_swap, {"schedule": schedule}),
+        (inter_machine_swap, {"schedule": schedule}),
         (
             generate_schedule,
             {"tasks": tasks, "n_machines": len(schedule.keys())},
-        ),
-        (intra_machine_swap, {"schedule": schedule}),
-        (
-            inter_machine_swap,
-            {"schedule": schedule, "n_swaps": random.randint(1, 10)},
         ),
         (
             shuffle_machine,
@@ -64,7 +62,13 @@ def discrete_spiral_update(
 
 
 def discrete_shrinking_mechanism(
-    best_schedule: Dict[int, List[int]], n_moves: int = 2, *args, **kwargs
+    best_schedule: Dict[int, List[int]],
+    obj_function: callable,
+    tasks: Dict[int, Any],
+    setups: List[Tuple[int, int]],
+    precedences: Dict[int, List[int]],
+    resources: Dict[str, Any],
+    n_moves: int = 2,
 ) -> Dict[int, List[int]]:
     """
     Design specifically for WOA. Creates a new schedule by making small random adjustments to the best schedule
@@ -75,12 +79,28 @@ def discrete_shrinking_mechanism(
         (inter_machine_swap, {"schedule": new_schedule}),
         (
             lookahead_insertion,
-            {"attempts": random.randint(10, 20), "schedule": new_schedule, **kwargs},
+            {
+                "attempts": random.randint(20, 30),
+                "schedule": new_schedule,
+                "obj_function": obj_function,
+                "tasks": tasks,
+                "setups": setups,
+                "precedences": precedences,
+                "resources": resources,
+            },
         ),
     ]
 
     for _ in range(n_moves):
         operation, according_args = random.choice(operation_pool)
         new_schedule = operation(**according_args)
+
+    # Partial fix
+    new_schedule = partial_precedence_repair(
+        schedule=new_schedule,
+        tasks=tasks,
+        precedences=precedences,
+        setups=setups,
+    )
 
     return new_schedule

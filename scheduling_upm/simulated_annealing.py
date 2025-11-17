@@ -59,20 +59,19 @@ class SimulatedAnnealing:
                 candidate_schedule = random_explore(
                     schedule=self.current_schedule.schedule,
                     tasks=self.tasks,
-                    obj_function=objective_function,
-                    **{"precedences": self.precedences, "setups": self.setups},
+                    n_ops=random.randint(5, 10),
                 )
+
             # Exploit
             else:
                 candidate_schedule = exploit(
                     schedule=self.current_schedule.schedule,
                     tasks=self.tasks,
                     obj_function=objective_function,
-                    **{
-                        "precedences": self.precedences,
-                        "setups": self.setups,
-                        "resources": self.resources,
-                    },
+                    precedences=self.precedences,
+                    setups=self.setups,
+                    resources=self.resources,
+                    n_ops=random.randint(1, 3),
                 )
 
             candidate_cost = objective_function(
@@ -84,8 +83,8 @@ class SimulatedAnnealing:
             )
 
             acp: float = self.acceptance_probability(
-                old_cost=self.best_schedule.cost,
-                new_cost=candidate_cost,
+                old_cost=self.best_schedule.cost["total_cost"],
+                new_cost=candidate_cost["total_cost"],
                 temperature=temperature,
             )
 
@@ -95,7 +94,7 @@ class SimulatedAnnealing:
                     new_cost=candidate_cost,
                 )
 
-            if candidate_cost < self.best_schedule.cost:
+            if candidate_cost["total_cost"] < self.best_schedule.cost["total_cost"]:
                 self.best_schedule.update(
                     new_schedule=copy.deepcopy(candidate_schedule),
                     new_cost=candidate_cost,
