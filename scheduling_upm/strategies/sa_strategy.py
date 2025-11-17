@@ -1,5 +1,4 @@
 import random
-import copy
 from typing import Dict, Any, Tuple, List
 from ..utils.operations import (
     generate_schedule,
