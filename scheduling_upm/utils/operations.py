@@ -34,6 +34,37 @@ def random_move(
     return schedule
 
 
+def block_move(schedule: Dict[int, Any]) -> Dict[int, List[Any]]:
+    """Explore. Move a block of tasks from one machine to another"""
+    new_schedule = copy.deepcopy(schedule)
+
+    while True:
+        move_machine, receive_machine = random.sample(list(new_schedule.keys()), k=2)
+        if len(new_schedule[move_machine]) > 1:
+            break
+
+    move_schedule = new_schedule[move_machine]
+    receive_schedule = new_schedule[receive_machine]
+
+    # Block idx
+    end = random.randrange(1, len(new_schedule[move_machine]))
+    start = random.randrange(0, end)
+
+    # Position on new machine
+    new_position = random.randrange(max(1, len(new_schedule[receive_machine])))
+    targeted_block = move_schedule[start:end]
+    move_schedule = move_schedule[0:start] + move_schedule[end:]
+
+    # Insert
+    for task in targeted_block[::-1]:
+        receive_schedule.insert(new_position, task)
+
+    new_schedule[move_machine] = move_schedule
+    new_schedule[receive_machine] = receive_schedule
+
+    return new_schedule
+
+
 def inter_machine_swap(schedule: Dict[int, List[int]]):
     """
     All. Swap tasks between different machines:

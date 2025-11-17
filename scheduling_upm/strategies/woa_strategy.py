@@ -4,6 +4,7 @@ from typing import Dict, Any, Tuple, List, Callable
 from ..utils.operations import (
     generate_schedule,
     inter_machine_swap,
+    block_move,
     random_move,
     shuffle_machine,
     intra_machine_swap,
@@ -18,6 +19,7 @@ def random_explore(
 ) -> Dict[int, List[int]]:
     operation_pool: List[Tuple[Callable, Dict]] = [
         (random_move, {"schedule": schedule}),
+        (block_move, {"schedule": schedule}),
         (intra_machine_swap, {"schedule": schedule}),
         (inter_machine_swap, {"schedule": schedule}),
         (

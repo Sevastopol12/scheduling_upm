@@ -3,6 +3,7 @@ from typing import Dict, Any, Tuple, List
 from ..utils.operations import (
     generate_schedule,
     inter_machine_swap,
+    block_move,
     random_move,
     shuffle_machine,
     intra_machine_swap,
@@ -17,6 +18,7 @@ def random_explore(
     # Explore
     operation_pool: List[Tuple[callable, Dict]] = [
         (random_move, {"schedule": schedule}),
+        (block_move, {"schedule": schedule}),
         (generate_schedule, {"tasks": tasks, "n_machines": len(schedule.keys())}),
         (inter_machine_swap, {"schedule": schedule}),
         (intra_machine_swap, {"schedule": schedule}),
