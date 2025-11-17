@@ -20,7 +20,7 @@ solution = WhaleOptimizationAlgorithm(
     precedences=None,
     energy_constraint=energy_constraint,
     total_resource=200,
-    n_iterations=int(1e4),
+    n_iterations=int(1e3),
 ).optimize()
 
 solution, _ = SimulatedAnnealing(
@@ -30,7 +30,7 @@ solution, _ = SimulatedAnnealing(
     precedences=precedences,
     energy_constraint=energy_constraint,
     total_resource=200,
-    n_iterations=int(1e4),
+    n_iterations=int(1e5),
 ).optimize()
 best_schedule, best_cost = solution.schedule, solution.cost
 

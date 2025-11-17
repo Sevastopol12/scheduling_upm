@@ -1,43 +1,56 @@
 import random
-from typing import List, Dict, Any
+import copy
+from typing import List, Dict, Any, Tuple, Set
+from .evaluation import compute_base_milestones
 
 
 def random_move(
-    schedule: Dict[int, List[Any]], n_moves: int = 1
+    schedule: Dict[int, List[Any]],
+    specified_task: Dict[str, int] = None,
 ) -> Dict[int, List[Any]]:
-    """Early stage. Move a task from one machine to another"""
-    for _ in range(n_moves):
-        machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
+    """
+    All. Move a task from one machine to another. Dynamically receive a specific task to be moved.
+    Specified task must cover "running-machine" and "index on that machine"
+    """
+    if specified_task is not None:
+        current_machine = specified_task["machine"]
+        job_idx = specified_task["idx"]
+        new_machine = random.randrange(len(schedule.keys()))
 
-        if len(schedule[machine_a]) < 2:
-            continue
+    else:
+        while True:
+            current_machine, new_machine = random.sample(list(schedule.keys()), k=2)
 
-        job_idx = random.randrange(len(schedule[machine_a]))
-        task = schedule[machine_a].pop(job_idx)
+            if len(schedule[current_machine]) > 0:
+                break
 
-        pos = random.randrange(len(schedule[machine_b]) + 1)
-        schedule[machine_b].insert(pos, task)
+        job_idx = random.randrange(len(schedule[current_machine]))
+
+    # Get task
+    task = schedule[current_machine].pop(job_idx)
+    pos = random.randrange(max(1, len(schedule[new_machine])))
+    schedule[new_machine].insert(pos, task)
 
     return schedule
 
 
-def inter_machine_swap(schedule: Dict[int, List[int]], n_swaps: int = 1):
+def inter_machine_swap(schedule: Dict[int, List[int]]):
     """
-    Early-Mid stage. Swap tasks between different machines:
+    All. Swap tasks between different machines:
     """
-    for _ in range(n_swaps):
+    while True:
         machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
 
-        if len(schedule[machine_a]) < 1 or len(schedule[machine_b]) < 1:
-            continue
+        if len(schedule[machine_a]) > 0 and len(schedule[machine_b]) > 0:
+            break
 
-        task_a = random.randrange(len(schedule[machine_a]))
-        task_b = random.randrange(len(schedule[machine_b]))
+    task_a = random.randrange(len(schedule[machine_a]))
+    task_b = random.randrange(len(schedule[machine_b]))
 
-        schedule[machine_a][task_a], schedule[machine_b][task_b] = (
-            schedule[machine_b][task_b],
-            schedule[machine_a][task_a],
-        )
+    schedule[machine_a][task_a], schedule[machine_b][task_b] = (
+        schedule[machine_b][task_b],
+        schedule[machine_a][task_a],
+    )
 
     return schedule
 
@@ -45,7 +58,7 @@ def inter_machine_swap(schedule: Dict[int, List[int]], n_swaps: int = 1):
 def generate_schedule(
     tasks: Dict[int, Any], n_machines: int = 4
 ) -> Dict[int, List[int]]:
-    """Initial / Early stage. Generate a whole new schedule"""
+    """Initial / Explore. Generate a whole new schedule"""
     schedule: Dict[int, List[int]] = {machine: [] for machine in range(n_machines)}
     shuffled_tasks = list(tasks.keys())
     random.shuffle(shuffled_tasks)
@@ -59,7 +72,7 @@ def generate_schedule(
 def shuffle_machine(
     schedule: Dict[int, List[Any]], n_machines: int = 1
 ) -> Dict[int, List[Any]]:
-    """Early / Late stage. Shuffle task order on random machine."""
+    """Explore. Shuffle task order on random machine."""
     machines = random.sample(list(schedule.keys()), n_machines)
     for machine in machines:
         if len(schedule[machine]) > 0:
@@ -69,52 +82,99 @@ def shuffle_machine(
 
 
 def intra_machine_swap(schedule: Dict[int, List[Any]]) -> Dict[int, List[Any]]:
-    """All stage. Swap two tasks within the same machine"""
-    machine = random.choice(list(schedule.keys()))
-    if len(schedule[machine]) > 1:
-        task_a, task_b = random.sample(range(len(schedule[machine])), 2)
-        schedule[machine][task_a], schedule[machine][task_b] = (
-            schedule[machine][task_a],
-            schedule[machine][task_b],
-        )
+    """
+    All. Swap two tasks within the same machine.
+    """
+    while True:
+        machine = random.choice(list(schedule.keys()))
+        if len(schedule[machine]) > 1:
+            break
 
-    return schedule
+    task_a, task_b = random.sample(range(len(schedule[machine])), 2)
 
-
-def critical_task_move(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
-    """Mid-Late stage. Move a longest-processing task from one machine to another"""
-    machine_a, machine_b = random.sample(list(schedule.keys()), 2)
-    if len(schedule[machine_a]) < 1:
-        return schedule
-
-    longest_task_idx: int = max(
-        range(len(schedule[machine_a])),
-        key=lambda task_idx: tasks[schedule[machine_a][task_idx]]["process_times"][
-            machine_a
-        ],
+    schedule[machine][task_a], schedule[machine][task_b] = (
+        schedule[machine][task_b],
+        schedule[machine][task_a],
     )
-    task = schedule[machine_a].pop(longest_task_idx)
-    # insert near best position
-    insert_position: int = random.randrange(len(schedule[machine_b]) + 1)
-    schedule[machine_b].insert(insert_position, task)
 
     return schedule
 
 
 def lookahead_insertion(
-    schedule: Dict[int, List[int]], obj_function: callable, attempts: int = 10, **kwargs
+    schedule: Dict[int, List[int]],
+    obj_function: callable,
+    tasks: Dict[int, Any],
+    setups: Dict[Tuple[int, int], int],
+    energy_constraint: Dict[str, Any] = None,
+    precedences: Dict[int, Set[int]] = None,
+    total_resource: int = None,
+    attempts: int = 10,
 ):
-    """Late stage. Attempt to find the best position to insert a task in"""
-    new_schedule = {machine: sequence for machine, sequence in schedule.items()}
-    current_cost: float = obj_function(schedule=new_schedule, **kwargs)
+    """Exploit. Attempt to find the best position to insert a task in"""
+    new_schedule = copy.deepcopy(schedule)
+    current_cost: float = obj_function(
+        schedule=new_schedule,
+        tasks=tasks,
+        setups=setups,
+        precedences=precedences,
+        energy_constraint=energy_constraint,
+        total_resource=total_resource,
+    )
+
+    machine = random.choice(
+        [machine for machine in schedule.keys() if len(new_schedule[machine]) > 0]
+    )
+
+    job_idx = random.randrange(len(new_schedule[machine]))
 
     for _ in range(attempts):
         # Randomly move task
-        candidate = random_move(schedule=new_schedule)
-        candidate_cost: float = obj_function(schedule=candidate, **kwargs)
+        candidate = random_move(
+            schedule=copy.deepcopy(new_schedule),
+            specified_task={"machine": machine, "idx": job_idx},
+        )
+        candidate_cost: float = obj_function(
+            schedule=candidate,
+            tasks=tasks,
+            setups=setups,
+            precedences=precedences,
+            energy_constraint=energy_constraint,
+            total_resource=total_resource,
+        )
 
-        if candidate_cost < current_cost:
+        if candidate_cost["total_cost"] < current_cost["total_cost"]:
             return candidate
 
     return new_schedule
 
+
+def partial_precedence_repair(
+    schedule: Dict[int, List[int]],
+    tasks: Dict[int, Any],
+    setups: Dict[Tuple[int, int], int],
+    precedences: Dict[int, Set[int]] = None,
+):
+    new_schedule = copy.deepcopy(schedule)
+
+    temp_milestones: Dict[int, Any] = compute_base_milestones(
+        schedule=new_schedule, tasks=tasks, setups=setups
+    )
+
+    for precedence_task, sequence in precedences.items():
+        precedence_machine = temp_milestones[precedence_task]["machine"]
+        for posterior_task in sequence:
+            if temp_milestones[posterior_task]["machine"] != precedence_machine:
+                continue
+
+            # Infeasible solution
+            precedence_idx: int = new_schedule[precedence_machine].index(
+                precedence_task
+            )
+            posterior_idx: int = new_schedule[precedence_machine].index(posterior_task)
+
+            if posterior_idx < precedence_idx:
+                # Move violated precedence up to right before its precedence
+                precedence_task = new_schedule[precedence_machine].pop(precedence_idx)
+                new_schedule[precedence_machine].insert(posterior_idx, precedence_task)
+
+    return new_schedule
