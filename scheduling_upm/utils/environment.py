@@ -21,7 +21,7 @@ def generate_environment(
         setup: dict of (task, task): Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
         VD: setup_time từ task a->b, được biểu diễn là (a,b) sẽ khác setup_time từ task a->c (a,c) và ngược lại
     """
-    if seed is not None: #keep task generation consistent
+    if seed is not None:  # keep task generation consistent
         random.seed(seed)
     # Generate tasks
     tasks: Dict[int, Any] = {}
@@ -124,8 +124,14 @@ def generate_precedence_constraints(
     return precedence
 
 
-def generate_energy_constraint(n_machines: int = 2, n_tasks: int = 4) -> Dict[str, Any]:
-    energy_cap: int = int(n_machines * 10)  # random.choice([0.7, 0.8, 0.9, 1.0])
+def generate_energy_constraint(
+    n_machines: int = 2, n_tasks: int = 4, custom_cap: int = None
+) -> Dict[str, Any]:
+    energy_cap: int = (
+        custom_cap
+        if custom_cap is not None
+        else int(n_machines * 10 * random.choice([0.7, 0.8, 0.9, 1.0]))
+    )
 
     energy_constraint: Dict[str, Any] = {
         "energy_cap": energy_cap,
