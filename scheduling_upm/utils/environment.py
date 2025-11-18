@@ -106,7 +106,7 @@ def generate_precedence_constraints(
     # công thức tính số ràng buộc tối đa có thể có tương ứng với n_task ha
     max_relations = int((n_tasks * (n_tasks - 1)) / 2)
     # do hồi bữa phúc dương kêu là nếu cho random tới max relation luôn thì nhiều quá nên t giảm bớt v, lấy tối đa của nó là 1/3 ha
-    num_relations = random.randint(1, max_relations // 3)
+    num_relations = random.randint(1, int(max_relations * 0.2))
 
     for new_relations in range(num_relations):
         a, b = random.sample(range(n_tasks), 2)
