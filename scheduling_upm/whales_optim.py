@@ -45,6 +45,8 @@ class WhaleOptimizationAlgorithm:
                 tasks=self.tasks,
                 setups=self.setups,
                 precedences=self.precedences,
+                alpha_load=50.0,
+                verbose=True
             )
             self.schedules.append(Schedule(schedule=schedule, cost=cost))
 
@@ -89,6 +91,8 @@ class WhaleOptimizationAlgorithm:
                     tasks=self.tasks,
                     setups=self.setups,
                     precedences=self.precedences,
+                    alpha_load=50.0,
+                    verbose=True
                 )
 
                 if candidate_cost < schedule.cost:

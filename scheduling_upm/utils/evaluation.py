@@ -7,26 +7,56 @@ def objective_function(
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
     precedences: Dict[int, Any] = None,
+    alpha_precedence: float = 10**6, # Hard constraint
+    alpha_load: float = 100.0,  # Soft constraint
+    alpha_energy: float = 1.0,  # Energy Exceed (Medium)
+    verbose: bool = False,  # Detail để tune
 ) -> Tuple:
-    """Objective: Minimize makespan"""
+    """Objective: Minimize makespan + penalty
+    Guide Tune Alpha:
+    1. Chạy random schedules để lấy typical makespan, std_dev
+    2. Chọn alpha sao cho penalty = 1-10x typical makespan nếu vi phạm medium
+        - Hard constraint (precedence): alpha cao (10^6+) để cấm vi phạm.
+        - Medium (energy): alpha trung bình (100 - 1000) để phạt exceed nhưng chấp nhận nếu cần.
+        - Soft (load balacing): alpha thấp (10 - 100) để khuyến khích balancing mà không bị dominate makespan.
+    3. Gird search: giả sử alpha_load = [1000, 2000, 5000, 7000], đo makespan cuối & std_dev cuối.
+    4. Adaptive: Nếu std_dev cuối > threshold (e.g. 500), tăng alpha_load x2 và rerun
+
+    --> Logging chi tiết để debug & tune các tham số để thử nghiệm
+    if verbose:
+        print(f"Makespan: {makespan}")
+        print(f"Precedence Penalty (raw): {precedence_penalty} -> Weighted: {alpha_precedence * precedence_penalty}")
+        print(f"Load Std Dev (raw): {std_dev} -> Weighted Penalty: {alpha_load * std_dev}")
+        print(f"Energy Penalty (raw): {energy_penalty} -> Weighted: {alpha_energy * energy_penalty}")
+        print(f"Total Cost: {cost}")
+
+    Giải thích nghĩa
+    1. Tune dùng để thí nghiệm & điều chỉnh các tham số để cải thiện performance. Trong trường hợp này, nó sẽ thử nghiệm & chọn best value cho alphas
+    --> Đảm bảo các penalties được cân bằng đúng
+    2. Verbose là 1 parameter trong code để logging chi tiết trong quá trình chạy để xem bên trong lúc debug xảy ra những gì
+    --> Giúp điều chỉnh các thông số để dubug
+    """
 
     # Compute milestones of task's completion time . Accouns for setups
     task_completion_milestones = compute_base_milestones(
         schedule=schedule, tasks=tasks, setups=setups
     )
+
+    precedences_penalty = 0
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
     if precedences:
-        penalty, task_completion_milestones = precedence_constraint(
+        precedences_penalty, task_completion_milestones = precedence_constraint(
             schedule=schedule,
             task_completion_milestones=task_completion_milestones,
             setups=setups,
             precedences=precedences,
         )
-        if penalty > 0:
-            return penalty
 
     # TODO
     # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
+
+    # Cal energy_penalty (ví dụ: sum(max(0, energy_at_t - cap) for t in time)
+    energy_penalty = 0
 
     # Makespan
     makespan = max(task_completion_milestones.values())
@@ -35,11 +65,19 @@ def objective_function(
     # Xét thêm những khía cạnh khác, tính cost
 
     # Thêm penalty cho load balacing
-    std_dev = calculate_load_standard_deviation(schedule, len(schedule))
-    load_penalty = 100 * std_dev
+    std_dev = calculate_load_standard_deviation(schedule, len(schedule), tasks)
 
     # Cost
-    cost = makespan + load_penalty
+    cost = (
+        makespan +
+        alpha_precedence * precedences_penalty +
+        alpha_load * std_dev +
+        alpha_energy * energy_penalty
+    )
+
+    if precedences_penalty > 0:
+        return alpha_precedence * precedences_penalty
+
     return cost
 
 

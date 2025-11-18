@@ -37,6 +37,8 @@ class SimulatedAnnealing:
             tasks=self.tasks,
             setups=self.setups,
             precedences=self.precedences,
+            alpha_load=50.0,
+            verbose=True
         )
 
         self.current_schedule = Schedule(schedule=schedule, cost=cost)
@@ -73,6 +75,8 @@ class SimulatedAnnealing:
                 tasks=self.tasks,
                 setups=self.setups,
                 precedences=self.precedences,
+                alpha_load=50.0,
+                verbose=True
             )
 
             acp: float = self.acceptance_probability(
