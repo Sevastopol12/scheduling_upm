@@ -21,7 +21,7 @@ def generate_environment(
         setup: dict of (task, task): Thời gian setup để chuẩn bị cho task tiếp theo, setup time sẽ khác nhau với mỗi task
         VD: setup_time từ task a->b, được biểu diễn là (a,b) sẽ khác setup_time từ task a->c (a,c) và ngược lại
     """
-    if seed is not None:  # keep task generation consistent
+    if seed is not None: #keep task generation consistent
         random.seed(seed)
     # Generate tasks
     tasks: Dict[int, Any] = {}
@@ -106,7 +106,7 @@ def generate_precedence_constraints(
     # công thức tính số ràng buộc tối đa có thể có tương ứng với n_task ha
     max_relations = int((n_tasks * (n_tasks - 1)) / 2)
     # do hồi bữa phúc dương kêu là nếu cho random tới max relation luôn thì nhiều quá nên t giảm bớt v, lấy tối đa của nó là 1/3 ha
-    num_relations = random.randint(1, int(max_relations * 0.2))
+    num_relations = random.randint(1, max_relations // 3)
 
     for new_relations in range(num_relations):
         a, b = random.sample(range(n_tasks), 2)
@@ -124,14 +124,8 @@ def generate_precedence_constraints(
     return precedence
 
 
-def generate_energy_constraint(
-    n_machines: int = 2, n_tasks: int = 4, custom_cap: int = None
-) -> Dict[str, Any]:
-    energy_cap: int = (
-        custom_cap
-        if custom_cap is not None
-        else int(n_machines * 10 * random.choice([0.7, 0.8, 0.9, 1.0]))
-    )
+def generate_energy_constraint(n_machines: int = 2, n_tasks: int = 4) -> Dict[str, Any]:
+    energy_cap: int = int(n_machines * 10)  # random.choice([0.7, 0.8, 0.9, 1.0])
 
     energy_constraint: Dict[str, Any] = {
         "energy_cap": energy_cap,

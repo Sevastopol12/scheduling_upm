@@ -4,12 +4,9 @@ from typing import Dict, Any, Tuple, List, Callable
 from ..utils.operations import (
     generate_schedule,
     inter_machine_swap,
-    block_move,
     random_move,
     shuffle_machine,
     intra_machine_swap,
-    lookahead_insertion,
-    partial_precedence_repair,
 )
 
 
@@ -18,13 +15,15 @@ def random_explore(
     schedule: Dict[int, List[int]],
 ) -> Dict[int, List[int]]:
     operation_pool: List[Tuple[Callable, Dict]] = [
-        (random_move, {"schedule": schedule}),
-        (block_move, {"schedule": schedule}),
-        (intra_machine_swap, {"schedule": schedule}),
-        (inter_machine_swap, {"schedule": schedule}),
+        (random_move, {"schedule": schedule, "n_moves": random.randint(1, 10)}),
         (
             generate_schedule,
             {"tasks": tasks, "n_machines": len(schedule.keys())},
+        ),
+        (intra_machine_swap, {"schedule": schedule}),
+        (
+            inter_machine_swap,
+            {"schedule": schedule, "n_swaps": random.randint(1, 10)},
         ),
         (
             shuffle_machine,
@@ -36,8 +35,7 @@ def random_explore(
     ]
 
     operation, kwargs = random.choice(operation_pool)
-    new_schedule = operation(**kwargs)
-    return new_schedule
+    return operation(**kwargs)
 
 
 def discrete_spiral_update(
@@ -64,48 +62,21 @@ def discrete_spiral_update(
 
 
 def discrete_shrinking_mechanism(
-    best_schedule: Dict[int, List[int]],
-    obj_function: callable,
-    tasks: Dict[int, Any],
-    setups: List[Tuple[int, int]],
-    precedences: Dict[int, List[int]],
-    energy_constraint: Dict[str, Any],
-    total_resource: Dict[str, Any],
-    n_moves: int = 2,
+    best_schedule: Dict[int, List[int]], n_moves: int = 2
 ) -> Dict[int, List[int]]:
     """
     Design specifically for WOA. Creates a new schedule by making small random adjustments to the best schedule
     """
     new_schedule = copy.deepcopy(best_schedule)
     operation_pool: List[Callable] = [
-        (intra_machine_swap, {"schedule": new_schedule}),
-        (inter_machine_swap, {"schedule": new_schedule}),
-        (
-            lookahead_insertion,
-            {
-                "attempts": random.randint(20, 30),
-                "schedule": new_schedule,
-                "obj_function": obj_function,
-                "tasks": tasks,
-                "setups": setups,
-                "precedences": precedences,
-                "energy_constraint": energy_constraint,
-                "total_resource": total_resource,
-            },
-        ),
+        shuffle_machine,
+        random_move,
+        intra_machine_swap,
+        inter_machine_swap,
     ]
 
     for _ in range(n_moves):
-        operation, according_args = random.choice(operation_pool)
-        new_schedule = operation(**according_args)
-
-    if precedences is not None:
-        # Partial fix
-        new_schedule = partial_precedence_repair(
-            schedule=new_schedule,
-            tasks=tasks,
-            precedences=precedences,
-            setups=setups,
-        )
+        operation = random.choice(operation_pool)
+        new_schedule = operation(copy.deepcopy(new_schedule))
 
     return new_schedule

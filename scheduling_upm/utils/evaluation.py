@@ -48,12 +48,7 @@ def objective_function(
 
     # Cost
     cost = makespan + precedence_penalty + energy_exceeds_penalty
-    return {
-        "total_cost": cost,
-        "makespan": makespan,
-        "precedence_penalty": precedence_penalty,
-        "energy_exceeds": energy_exceeds_penalty,
-    }
+    return cost
 
 
 def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
@@ -117,7 +112,7 @@ def precedence_constraint(
     actual_completion_times = copy.deepcopy(task_completion_milestones)
 
     # sửa giá trị pen nếu vi phạm
-    PENALTY_BASE = int(1e5)
+    PENALTY_BASE = int(1e3)
     penalty = 0
 
     # xong phần chuẩn bị r, h t vô thì t sẽ check precedence
