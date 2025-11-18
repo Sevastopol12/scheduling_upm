@@ -2,7 +2,7 @@ import math
 import random
 import copy
 from typing import Dict, Any, Tuple, Set, List
-from .strategies.sa_strategy import random_explore, transition, exploit
+from .strategies.sa_strategy import random_explore, exploit
 from .utils.operations import generate_schedule
 from .utils.evaluation import objective_function
 from .utils.entities import Schedule
@@ -15,7 +15,6 @@ class SimulatedAnnealing:
         tasks: Dict[int, Any],
         setups: Dict[Tuple[int, int], int],
         precedences: Dict[int, Set] = None,
-        resource: Dict[str, Any] = None,
         energy_constraint: Dict[str, Any] = None,
         total_resource: Dict[str, Any] = None,
         n_iterations: int = 1000,
@@ -25,9 +24,8 @@ class SimulatedAnnealing:
         self.setups = setups
         self.n_machines = n_machines
         self.n_iterations = n_iterations
-        self.precedences = precedences or {}
-        self.resource = resource or {}
-        self.energy_constraint = energy_constraint or {}
+        self.precedences = precedences or None
+        self.energy_constraint = energy_constraint or None
         self.total_resource = total_resource or None
         self.initial_temp = initial_temp
         self.best_schedule = None
@@ -59,27 +57,24 @@ class SimulatedAnnealing:
             progress: float = iter / self.n_iterations
 
             # Explore
-            if probability < 0.5 * (1 - progress):
+            if probability < 0.7 * (1 - progress):
                 candidate_schedule = random_explore(
-                    schedule=self.current_schedule.schedule, tasks=self.tasks
+                    schedule=self.current_schedule.schedule,
+                    tasks=self.tasks,
+                    n_ops=random.randint(1, 10),
                 )
-            # Transition
-            elif probability < 0.9 * (1 - progress):
-                candidate_schedule = transition(
-                    schedule=self.current_schedule.schedule, tasks=self.tasks
-                )
+
             # Exploit
             else:
                 candidate_schedule = exploit(
                     schedule=self.current_schedule.schedule,
                     tasks=self.tasks,
                     obj_function=objective_function,
-                    **{
-                        "precedences": self.precedences,
-                        "setups": self.setups,
-                        "energy_constraint": self.energy_constraint,
-                        "total_resource": self.total_resource,
-                    },
+                    precedences=self.precedences,
+                    setups=self.setups,
+                    energy_constraint=self.energy_constraint,
+                    total_resource=self.total_resource,
+                    n_ops=random.randint(1, 3),
                 )
 
             candidate_cost = objective_function(
@@ -92,8 +87,8 @@ class SimulatedAnnealing:
             )
 
             acp: float = self.acceptance_probability(
-                old_cost=self.best_schedule.cost,
-                new_cost=candidate_cost,
+                old_cost=self.best_schedule.cost["total_cost"],
+                new_cost=candidate_cost["total_cost"],
                 temperature=temperature,
             )
 
@@ -103,7 +98,7 @@ class SimulatedAnnealing:
                     new_cost=candidate_cost,
                 )
 
-            if candidate_cost < self.best_schedule.cost:
+            if candidate_cost["total_cost"] < self.best_schedule.cost["total_cost"]:
                 self.best_schedule.update(
                     new_schedule=copy.deepcopy(candidate_schedule),
                     new_cost=candidate_cost,
