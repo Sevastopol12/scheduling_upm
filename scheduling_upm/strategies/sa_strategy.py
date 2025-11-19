@@ -3,24 +3,25 @@ from typing import Dict, Any, Tuple, List
 from ..utils.operations import (
     generate_schedule,
     inter_machine_swap,
+    block_move,
     random_move,
     shuffle_machine,
     intra_machine_swap,
-    critical_task_move,
     lookahead_insertion,
+    partial_precedence_repair,
 )
 
 
-def random_explore(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
-    # Early stage: Explore
+def random_explore(
+    schedule: Dict[int, List[int]], tasks: Dict[int, Any], n_ops: int = 1
+):
+    # Explore
     operation_pool: List[Tuple[callable, Dict]] = [
-        (random_move, {"schedule": schedule, "n_moves": random.randint(1, 10)}),
+        (random_move, {"schedule": schedule}),
+        (block_move, {"schedule": schedule}),
         (generate_schedule, {"tasks": tasks, "n_machines": len(schedule.keys())}),
+        (inter_machine_swap, {"schedule": schedule}),
         (intra_machine_swap, {"schedule": schedule}),
-        (
-            inter_machine_swap,
-            {"schedule": schedule, "n_swaps": random.randint(1, 10)},
-        ),
         (
             shuffle_machine,
             {
@@ -29,36 +30,53 @@ def random_explore(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
             },
         ),
     ]
+    for _ in range(n_ops):
+        operation, kwargs = random.choice(operation_pool)
+        new_schedule = operation(**kwargs)
 
-    operation, kwargs = random.choice(operation_pool)
-    schedule = operation(**kwargs)
+    return new_schedule
 
-    return schedule
 
 def exploit(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     obj_function: callable,
-    **kwargs,
+    n_ops: int = 1,
+    energy_constraint: Dict[str, Any] = None,
+    precedences: Dict[int, List[int]] = None,
+    setups: List[Tuple[int, int]] = None,
+    total_resource: Dict[int, Any] = None,
 ):
-    # Late stage: Exploit
+    # Exploit
     operation_pool: List[Tuple[callable, Dict]] = [
-        (inter_machine_swap, {"schedule": schedule}),
         (intra_machine_swap, {"schedule": schedule}),
-        (critical_task_move, {"schedule": schedule, "tasks": tasks}),
+        (inter_machine_swap, {"schedule": schedule}),
         (
             lookahead_insertion,
             {
                 "schedule": schedule,
                 "tasks": tasks,
-                "attempts": random.randint(1, 10),
+                "attempts": random.randint(20, 30),
                 "obj_function": obj_function,
-                **kwargs,
+                "energy_constraint": energy_constraint,
+                "precedences": precedences,
+                "setups": setups,
+                "total_resource": total_resource,
             },
         ),
     ]
 
-    operation, kwargs = random.choice(operation_pool)
-    schedule = operation(**kwargs)
+    for _ in range(n_ops):
+        operation, kwargs = random.choice(operation_pool)
+        new_schedule = operation(**kwargs)
 
-    return schedule
+    # Partial fix
+    if precedences is not None:
+        new_schedule = partial_precedence_repair(
+            schedule=new_schedule,
+            tasks=tasks,
+            precedences=precedences,
+            setups=setups,
+        )
+
+    return new_schedule
