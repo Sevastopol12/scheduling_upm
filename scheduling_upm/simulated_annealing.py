@@ -58,7 +58,6 @@ class SimulatedAnnealing:
                 candidate_schedule = random_explore(
                     schedule=copy.deepcopy(self.current_schedule.schedule),
                     tasks=self.tasks,
-                    n_ops=random.randint(1, 10),
                 )
             else:
                 candidate_schedule = exploit(
@@ -69,7 +68,6 @@ class SimulatedAnnealing:
                     setups=self.setups,
                     energy_constraint=self.energy_constraint,
                     total_resource=self.total_resource,
-                    n_ops=random.randint(1, 3),
                 )
 
             candidate_cost = self.compute_cost(candidate_schedule)
@@ -186,8 +184,10 @@ class SimulatedAnnealing:
             energy_constraint=self.energy_constraint,
             total_resource=self.total_resource
         )
-        base_cost["features"] = self._compute_features(schedule)
-        return base_cost
+        return {
+        "total_cost": base_cost,  # base_cost là int
+        "features": self._compute_features(schedule)
+    }
 
     #thực hiện nhảy có mục tiêu để cải thiện feature xấu
     def _targeted_jump(self, schedule: Dict[int, List[int]], worst_feature: str):
