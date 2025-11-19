@@ -217,7 +217,7 @@ class SimulatedAnnealing:
             return schedule
         
         #mặc định random explore nếu không xác định được feature idle hoặc concentration
-        return random_explore(schedule=schedule, tasks=self.tasks, n_ops=5)
+        return random_explore(schedule=schedule, tasks=self.tasks)
 
     def acceptance_probability_gls(
         self, old_cost: float, new_cost: float, temperature: float, features: Dict[str, float]
