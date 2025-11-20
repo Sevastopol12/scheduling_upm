@@ -10,7 +10,7 @@ def objective_function(
     precedences: Dict[int, Any] = None,
     energy_constraint: Dict[str, Any] = None,
     total_resource: int = None,
-) -> Tuple:
+) -> Dict[str, float]:
     """Objective: Minimize makespan"""
 
     # Áp dụng ràng buộc resource
@@ -30,7 +30,7 @@ def objective_function(
     if precedences is not None:
         precedence_penalty, task_completion_milestones = precedence_constraint(
             schedule=schedule,
-            task_completion_milestones=task_completion_milestones,
+            task_completion_milestones=copy.deepcopy(task_completion_milestones),
             setups=setups,
             precedences=precedences,
         )
@@ -56,8 +56,8 @@ def objective_function(
     }
 
 
-def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
-    makespan = max(task["complete_time"] for task in task_milestones.values())
+def compute_makespan(task_milestones: Dict[int, int]) -> int:
+    makespan = max([task["complete_time"] for task in task_milestones.values()])
     return makespan
 
 
