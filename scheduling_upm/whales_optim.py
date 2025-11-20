@@ -10,7 +10,6 @@ from .strategies.woa_strategy import (
 from .utils.evaluation import objective_function
 from .utils.entities import Schedule
 
-
 class WhaleOptimizationAlgorithm:
     """
     Whale Optimization Algorithm
@@ -52,6 +51,8 @@ class WhaleOptimizationAlgorithm:
                 setups=self.setups,
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
+                alpha_load=50.0,
+                verbose=True
             )
             self.schedules.append(Schedule(schedule=schedule, cost=cost))
 
@@ -104,6 +105,8 @@ class WhaleOptimizationAlgorithm:
                     precedences=self.precedences,
                     energy_constraint=self.energy_constraint,
                     total_resource=self.total_resource,
+                    alpha_load=50.0,
+                    verbose=True
                 )
 
                 if candidate_cost["total_cost"] < agent_schedule.cost["total_cost"]:

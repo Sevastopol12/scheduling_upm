@@ -39,6 +39,8 @@ class SimulatedAnnealing:
             tasks=self.tasks,
             setups=self.setups,
             precedences=self.precedences,
+            alpha_load=50.0,
+            verbose=True,
             total_resource=self.total_resource,
         )
 
@@ -73,7 +75,6 @@ class SimulatedAnnealing:
                     tasks=self.tasks,
                     n_ops=random.randint(1, 10),
                 )
-
             # Exploit
             else:
                 candidate_schedule = exploit(
@@ -94,6 +95,8 @@ class SimulatedAnnealing:
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
                 total_resource=self.total_resource,
+                alpha_load=50.0,
+                verbose=True
             )
 
             acp: float = self.acceptance_probability(
