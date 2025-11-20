@@ -3,6 +3,7 @@ import copy
 from typing import List, Dict, Any, Tuple, Set
 from .evaluation import compute_base_milestones
 
+
 def random_move(
     schedule: Dict[int, List[Any]],
     specified_task: Dict[str, int] = None,
@@ -37,20 +38,29 @@ def block_move(schedule: Dict[int, Any]) -> Dict[int, List[Any]]:
     """Explore. Move a block of tasks from one machine to another"""
     new_schedule = copy.deepcopy(schedule)
 
-    while True:
-        move_machine, receive_machine = random.sample(list(new_schedule.keys()), k=2)
-        if len(new_schedule[move_machine]) > 1:
-            break
+    # Filter out valid machine
+    valid_machines: List[int] = [
+        machine for machine in new_schedule.keys() if len(new_schedule[machine]) > 1
+    ]
 
+    if len(valid_machines) < 2:
+        return random_move(schedule=new_schedule)
+    # Target machine
+    move_machine = random.choice(valid_machines)
+    # Remove to avoid being pick again
+    valid_machines.remove(move_machine)
+    receive_machine = random.choice(valid_machines)
+
+    # Target schedule
     move_schedule = new_schedule[move_machine]
     receive_schedule = new_schedule[receive_machine]
 
     # Block idx
-    end = random.randrange(1, len(new_schedule[move_machine]))
+    end = random.randrange(1, len(new_schedule[move_machine]) + 1)
     start = random.randrange(0, end)
 
     # Position on new machine
-    new_position = random.randrange(max(1, len(new_schedule[receive_machine])))
+    new_position = random.randrange(0, max(1, len(new_schedule[receive_machine])))
     targeted_block = move_schedule[start:end]
     move_schedule = move_schedule[0:start] + move_schedule[end:]
 
@@ -61,6 +71,7 @@ def block_move(schedule: Dict[int, Any]) -> Dict[int, List[Any]]:
     new_schedule[move_machine] = move_schedule
     new_schedule[receive_machine] = receive_schedule
 
+    del valid_machines
     return new_schedule
 
 
@@ -68,10 +79,20 @@ def inter_machine_swap(schedule: Dict[int, List[int]]):
     """
     All. Swap tasks between different machines:
     """
-    machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
+    # Filter out valid machines
+    valid_machines: List[int] = [
+        machine for machine in schedule.keys() if len(schedule[machine]) > 0
+    ]
 
-    if len(schedule[machine_a]) < 1 or len(schedule[machine_b]) < 1:
+    if len(valid_machines) < 2:
         return random_move(schedule=schedule)
+
+    machine_a = random.choice(valid_machines)
+
+    # Remove to avoid being pick again
+    valid_machines.remove(machine_a)
+
+    machine_b = random.choice(valid_machines)
 
     task_a = random.randrange(len(schedule[machine_a]))
     task_b = random.randrange(len(schedule[machine_b]))
@@ -81,6 +102,7 @@ def inter_machine_swap(schedule: Dict[int, List[int]]):
         schedule[machine_a][task_a],
     )
 
+    del valid_machines
     return schedule
 
 
