@@ -1,4 +1,5 @@
 import copy
+import numpy as np
 from typing import List, Tuple, Dict, Any
 from collections import defaultdict
 
@@ -10,8 +11,35 @@ def objective_function(
     precedences: Dict[int, Any] = None,
     energy_constraint: Dict[str, Any] = None,
     total_resource: int = None,
+    alpha_precedence: float = 10**6, # Hard constraint
+    alpha_load: float = 100.0,  # Soft constraint
+    alpha_energy: float = 1.0,  # Energy Exceed (Medium)
+    verbose: bool = False,  # Detail để tune
 ) -> Tuple:
-    """Objective: Minimize makespan"""
+    """Objective: Minimize makespan + penalty
+    Guide Tune Alpha:
+    1. Chạy random schedules để lấy typical makespan, std_dev
+    2. Chọn alpha sao cho penalty = 1-10x typical makespan nếu vi phạm medium
+        - Hard constraint (precedence): alpha cao (10^6+) để cấm vi phạm.
+        - Medium (energy): alpha trung bình (100 - 1000) để phạt exceed nhưng chấp nhận nếu cần.
+        - Soft (load balancing): alpha thấp (10 - 100) để khuyến khích balancing mà không bị dominate makespan.
+    3. Grid search: giả sử alpha_load = [1000, 2000, 5000, 7000], đo makespan cuối & std_dev cuối.
+    4. Adaptive: Nếu std_dev cuối > threshold (e.g. 500), tăng alpha_load x2 và rerun
+
+    --> Logging chi tiết để debug & tune các tham số để thử nghiệm
+    if verbose:
+        print(f"Makespan: {makespan}")
+        print(f"Precedence Penalty (raw): {precedence_penalty} -> Weighted: {alpha_precedence * precedence_penalty}")
+        print(f"Load Std Dev (raw): {std_dev} -> Weighted Penalty: {alpha_load * std_dev}")
+        print(f"Energy Penalty (raw): {energy_penalty} -> Weighted: {alpha_energy * energy_penalty}")
+        print(f"Total Cost: {cost}")
+
+    Giải thích nghĩa
+    1. Tune dùng để thí nghiệm & điều chỉnh các tham số để cải thiện performance. Trong trường hợp này, nó sẽ thử nghiệm & chọn best value cho alphas
+    --> Đảm bảo các penalties được cân bằng đúng
+    2. Verbose là 1 parameter trong code để logging chi tiết trong quá trình chạy để xem bên trong lúc debug xảy ra những gì
+    --> Giúp điều chỉnh các thông số để dubug
+    """
 
     # Áp dụng ràng buộc resource
     task_completion_milestones = (
@@ -24,7 +52,6 @@ def objective_function(
         if total_resource is not None
         else compute_base_milestones(schedule=schedule, tasks=tasks, setups=setups)
     )
-
     # Áp dụng ràng buộc precedences để tính thời gian hoàn thành thực tế của từng task
     precedence_penalty = 0
     if precedences is not None:
@@ -34,8 +61,7 @@ def objective_function(
             setups=setups,
             precedences=precedences,
         )
-
-    # Energy consumption constraint
+        # Energy consumption constraint
     energy_exceeds_penalty = 0
     if energy_constraint is not None:
         energy_exceeds_penalty = energy_consumption_over_time(
@@ -43,13 +69,31 @@ def objective_function(
             energy_constraint=energy_constraint,
         )
 
-    # Makespan
+    # TODO
+    # Áp dụng ràng buộc resource để tính thời gian hoàn thành thực tế của từng task
+
+    # Makespan, std_dev
     makespan = compute_makespan(task_milestones=task_completion_milestones)
+    std_dev = calculate_load_standard_deviation(schedule, len(schedule), tasks)
+
+    # TODO
+    # Xét thêm những khía cạnh khác, tính cost
 
     # Cost
-    cost = makespan + precedence_penalty + energy_exceeds_penalty
-    return cost
+    cost = (
+        makespan + 
+        alpha_precedence * precedence_penalty +
+        alpha_load * std_dev +
+        alpha_energy * energy_exceeds_penalty
+    )
 
+    return {
+        "total_cost": cost,
+        "makespan": makespan,
+        "precedence_penalty": precedence_penalty,
+        "std_dev": std_dev,
+        "energy_exceeds": energy_exceeds_penalty,
+    }
 
 def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
     makespan = max(task["complete_time"] for task in task_milestones.values())
@@ -112,7 +156,7 @@ def precedence_constraint(
     actual_completion_times = copy.deepcopy(task_completion_milestones)
 
     # sửa giá trị pen nếu vi phạm
-    PENALTY_BASE = int(1e3)
+    PENALTY_BASE = int(1e5)
     penalty = 0
 
     # xong phần chuẩn bị r, h t vô thì t sẽ check precedence
@@ -336,3 +380,37 @@ def apply_resource_constraint(
                 break  # Không còn task nào thì đã hoàn thành hết task, thoát vòng lặp
 
     return final_schedule
+
+def calculate_machine_loads(schedule, n_machines, tasks):
+    """
+    Tính tổng load (weighted duration) của mỗi machine
+
+    schedule: dict {machine_id: [task_ids]}
+    n_machines: số máy
+    tasks: dict {task_id: {process_times, resource, weight}}
+
+    Return list: tổng load của mỗi máy
+    """
+    machine_loads = [0.0] * n_machines
+
+    for machine_id, task_list in schedule.items():
+        for task_id in task_list:
+            task = tasks[task_id]
+            # Load = process_time * weight
+            process_time = task["process_times"][machine_id]
+            weight = task.get("weight", 1)
+            machine_loads[machine_id] += process_time * weight
+    return machine_loads
+    
+def calculate_load_standard_deviation(schedule, n_machines, tasks):
+    """
+    Tính std_dev của load các máy
+
+    schedule: dict {machine_id: [task_ids]}
+    n_machines: số máy
+    dict tasks
+
+    Return float: std_dev của load
+    """
+    loads = calculate_machine_loads(schedule, n_machines, tasks)
+    return float(np.std(loads))

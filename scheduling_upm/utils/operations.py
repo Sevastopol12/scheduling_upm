@@ -82,22 +82,30 @@ def intra_machine_swap(schedule: Dict[int, List[Any]]) -> Dict[int, List[Any]]:
 
 
 def critical_task_move(schedule: Dict[int, List[int]], tasks: Dict[int, Any]):
-    """Mid-Late stage. Move a longest-processing task from one machine to another"""
-    machine_a, machine_b = random.sample(list(schedule.keys()), 2)
-    if len(schedule[machine_a]) < 1:
-        return schedule
+    n_machines = len(schedule)
+    # Calculate total process_time for each machine
+    machine_loads = []
+    for m in range(n_machines):
+        total = sum(tasks[task]["process_times"][m] for task in schedule[m])
+        machine_loads.append(total)
 
-    longest_task_idx: int = max(
-        range(len(schedule[machine_a])),
-        key=lambda task_idx: tasks[schedule[machine_a][task_idx]]["process_times"][
-            machine_a
-        ],
+    busy_machine = int(max(range(n_machines), key=lambda m: machine_loads[m]))
+    idle_machine = int(min(range(n_machines), key=lambda m: machine_loads[m]))
+
+    if len(schedule[busy_machine]) == 0 or busy_machine == idle_machine:
+        # fallback: random move if not possible
+        busy_machine, idle_machine = random.sample(list(schedule.keys()), 2)
+        if len(schedule[busy_machine]) < 1:
+            return schedule
+
+    #chọn task có process_time  lớn nhất trên busy_machine để di chuyển sang idle_machine
+    longest_idx = max(
+        range(len(schedule[busy_machine])),
+        key=lambda idx: tasks[schedule[busy_machine][idx]]["process_times"][busy_machine],
     )
-    task = schedule[machine_a].pop(longest_task_idx)
-    # insert near best position
-    insert_position: int = random.randrange(len(schedule[machine_b]) + 1)
-    schedule[machine_b].insert(insert_position, task)
-
+    task = schedule[busy_machine].pop(longest_idx)
+    insert_position = random.randrange(len(schedule[idle_machine]) + 1)
+    schedule[idle_machine].insert(insert_position, task)
     return schedule
 
 
