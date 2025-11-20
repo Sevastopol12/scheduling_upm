@@ -39,10 +39,20 @@ class SimulatedAnnealing:
             tasks=self.tasks,
             setups=self.setups,
             precedences=self.precedences,
+            total_resource=self.total_resource,
         )
 
         self.current_schedule = Schedule(schedule=schedule, cost=cost)
         self.best_schedule = Schedule(schedule=schedule, cost=cost)
+        self.history.append(
+            {
+                "iteration": 0,
+                "iter_cost": self.current_schedule.cost,
+                "iter_schedule": copy.deepcopy(self.current_schedule.schedule),
+                "best_schedule": copy.deepcopy(self.best_schedule.schedule),
+                "best_cost": self.best_schedule.cost,
+            }
+        )
 
     def optimize(self) -> Tuple[Schedule, List[Dict]]:
         self.initialize_schedule()
@@ -59,7 +69,7 @@ class SimulatedAnnealing:
             # Explore
             if probability < 0.7 * (1 - progress):
                 candidate_schedule = random_explore(
-                    schedule=self.current_schedule.schedule,
+                    schedule=copy.deepcopy(self.current_schedule.schedule),
                     tasks=self.tasks,
                     n_ops=random.randint(1, 10),
                 )
@@ -67,7 +77,7 @@ class SimulatedAnnealing:
             # Exploit
             else:
                 candidate_schedule = exploit(
-                    schedule=self.current_schedule.schedule,
+                    schedule=copy.deepcopy(self.current_schedule.schedule),
                     tasks=self.tasks,
                     obj_function=objective_function,
                     precedences=self.precedences,
@@ -95,21 +105,21 @@ class SimulatedAnnealing:
             if random.random() < acp:
                 self.current_schedule.update(
                     new_schedule=copy.deepcopy(candidate_schedule),
-                    new_cost=candidate_cost,
+                    new_cost=copy.deepcopy(candidate_cost),
                 )
 
             if candidate_cost["total_cost"] < self.best_schedule.cost["total_cost"]:
                 self.best_schedule.update(
                     new_schedule=copy.deepcopy(candidate_schedule),
-                    new_cost=candidate_cost,
+                    new_cost=copy.deepcopy(candidate_cost),
                 )
 
             self.history.append(
                 {
-                    "iteration": iter,
+                    "iteration": iter +1,
                     "iter_cost": self.current_schedule.cost,
-                    "iter_schedule": self.current_schedule.schedule,
-                    "best_schedule": self.best_schedule.schedule,
+                    "iter_schedule": copy.deepcopy(self.current_schedule.schedule),
+                    "best_schedule": copy.deepcopy(self.best_schedule.schedule),
                     "best_cost": self.best_schedule.cost,
                 }
             )

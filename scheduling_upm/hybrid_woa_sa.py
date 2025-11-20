@@ -1,10 +1,8 @@
-import argparse
 import copy
 import time
 import random
 from typing import List
 
-from scheduling_upm.utils.environment import generate_environment
 from scheduling_upm.utils.evaluation import objective_function
 from scheduling_upm.utils.entities import Schedule
 from scheduling_upm.utils.operations import generate_schedule
@@ -15,8 +13,9 @@ from scheduling_upm.strategies.woa_strategy import (
 )
 from scheduling_upm.strategies.sa_strategy import exploit as sa_exploit
 
+
 # Mình sẽ dùng WOA để khám phá toàn cục, SA để khai thác cục bộ
-def initialize_population(          # tạo dữ liệu ban đầu - điểm xuất phát
+def initialize_population(  # tạo dữ liệu ban đầu - điểm xuất phát
     n_schedules: int,
     tasks,
     n_machines: int,
@@ -36,11 +35,12 @@ def initialize_population(          # tạo dữ liệu ban đầu - điểm xu�
             energy_constraint=energy_constraint,
             total_resource=total_resource,
         )
-        pop.append(Schedule(schedule=sched, cost=cost_dict["total_cost"]))
+        pop.append(Schedule(schedule=sched, cost=cost_dict))
     return pop
 
 
-def linearly_decrement(iter: int, n_iterations: int): # khởi tạo giá trị quyết định tính khám phá
+def linearly_decrement(iter: int, n_iterations: int):
+    # khởi tạo giá trị quyết định tính khám phá
     return 2 - 2 * (iter / max(1, n_iterations))
 
 
@@ -51,8 +51,7 @@ def hybrid_woa_sa(
     n_machines: int | None = None,
     n_schedules: int = 10,
     n_iterations: int = 100,
-    sa_local_iters: int = 2,
-    seed: int | None = None,
+    sa_local_iters: int = 10,
     energy_constraint: dict | None = None,
     total_resource: int | None = None,
 ):
@@ -65,10 +64,13 @@ def hybrid_woa_sa(
         energy_constraint=energy_constraint,
         total_resource=total_resource,
     )
-    best = copy.deepcopy(min(population, key=lambda s: s.cost))
+
+    best = copy.deepcopy(min(population, key=lambda s: s.cost["total_cost"]))
 
     start = time.time()
-    for it in range(n_iterations): #xét a, lần lượt dùng woa để cập nhập và SA để tinh chỉnh 
+    for it in range(
+        n_iterations
+    ):  # xét a, lần lượt dùng woa để cập nhập và SA để tinh chỉnh
         a = linearly_decrement(iter=it, n_iterations=n_iterations)
 
         for i, whale in enumerate(population):
@@ -77,7 +79,11 @@ def hybrid_woa_sa(
 
             if p < 0.5:
                 if abs(A) <= 1:
-                    n_moves = random.randint(1, max(1, int(a * 10))) if a <= 0.3 else random.randint(1, 5)
+                    n_moves = (
+                        random.randint(1, max(1, int(a * 10)))
+                        if a <= 0.3
+                        else random.randint(1, 5)
+                    )
                     candidate = discrete_shrinking_mechanism(
                         best_schedule=best.schedule,
                         obj_function=objective_function,
@@ -91,21 +97,22 @@ def hybrid_woa_sa(
                 else:
                     candidate = woa_random_explore(schedule=whale.schedule, tasks=tasks)
             else:
-                candidate = discrete_spiral_update(schedule=whale.schedule, best_schedule=best.schedule)
+                candidate = discrete_spiral_update(
+                    schedule=whale.schedule, best_schedule=best.schedule
+                )
 
-           
-            candidate_schedule = copy.deepcopy(candidate)
-            prev_cost = objective_function(
-                schedule=candidate_schedule,
+            candidate_cost = objective_function(
+                schedule=copy.deepcopy(candidate),
                 tasks=tasks,
                 setups=setups,
                 precedences=precedences,
                 energy_constraint=energy_constraint,
                 total_resource=total_resource,
-            )["total_cost"]
+            )
+
             for _ in range(sa_local_iters):  # SA tinh chỉnh giúp WOA ở đây
                 candidate_schedule = sa_exploit(
-                    schedule=candidate_schedule,
+                    schedule=copy.deepcopy(candidate),
                     tasks=tasks,
                     obj_function=objective_function,
                     precedences=precedences,
@@ -113,6 +120,7 @@ def hybrid_woa_sa(
                     energy_constraint=energy_constraint,
                     total_resource=total_resource,
                 )
+
                 new_cost = objective_function(
                     schedule=candidate_schedule,
                     tasks=tasks,
@@ -120,27 +128,27 @@ def hybrid_woa_sa(
                     precedences=precedences,
                     energy_constraint=energy_constraint,
                     total_resource=total_resource,
-                )["total_cost"]
-                if new_cost >= prev_cost:
+                )
+
+                if new_cost["total_cost"] < candidate_cost["total_cost"]:
+                    candidate_cost = new_cost
                     break
-                prev_cost = new_cost
 
-            candidate_cost = prev_cost
-            #tiến hành cập nhật cá voi nếu tìm được ứng viên tốt hơn
-            if candidate_cost < whale.cost:
-                whale.update(new_schedule=copy.deepcopy(candidate_schedule), new_cost=candidate_cost)
+            # tiến hành cập nhật cá voi nếu tìm được ứng viên tốt hơn
+            if candidate_cost["total_cost"] < whale.cost["total_cost"]:
+                whale.update(
+                    new_schedule=copy.deepcopy(candidate_schedule),
+                    new_cost=candidate_cost,
+                )
 
-            if whale.cost < best.cost:
+            if whale.cost["total_cost"] < best.cost["total_cost"]:
                 best = copy.deepcopy(whale)
 
         if (it + 1) % max(1, n_iterations // 10) == 0:
             elapsed = time.time() - start
-            print(f"iter {it+1}/{n_iterations} best_cost={best.cost:.3f} elapsed={elapsed:.2f}s")
+            print(
+                f"iter {it + 1}/{n_iterations} best_cost={best.cost["total_cost"]:.3f} elapsed={elapsed:.2f}s"
+            )
 
     total_time = time.time() - start
     return best, total_time
-
-
-
-
-
