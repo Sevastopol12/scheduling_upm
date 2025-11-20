@@ -90,9 +90,9 @@ def objective_function(
     return {
         "total_cost": cost,
         "makespan": makespan,
-        "precedence_penalty": precedence_penalty,
-        "std_dev": std_dev,
-        "energy_exceeds": energy_exceeds_penalty,
+        "precedence_penalty": alpha_precedence * precedence_penalty,
+        "std_dev": alpha_load * std_dev,
+        "energy_exceeds": alpha_energy * energy_exceeds_penalty,
     }
 
 def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
@@ -155,8 +155,6 @@ def precedence_constraint(
     task_to_machine = {task: m for m, seq in schedule.items() for task in seq}
     actual_completion_times = copy.deepcopy(task_completion_milestones)
 
-    # sửa giá trị pen nếu vi phạm
-    PENALTY_BASE = int(1e5)
     penalty = 0
 
     # xong phần chuẩn bị r, h t vô thì t sẽ check precedence
@@ -180,7 +178,7 @@ def precedence_constraint(
                     idx_pre > idx_post
                 ):  # chỉnh lại cách tính pen linh hoạt chứ k cố định
                     DISTANCE = abs(idx_pre - idx_post)
-                    penalty += PENALTY_BASE * DISTANCE
+                    penalty += DISTANCE
 
             else:
                 finish_pre = actual_completion_times[pre]["complete_time"]
