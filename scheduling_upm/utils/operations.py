@@ -68,11 +68,10 @@ def inter_machine_swap(schedule: Dict[int, List[int]]):
     """
     All. Swap tasks between different machines:
     """
-    while True:
-        machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
+    machine_a, machine_b = random.sample(list(schedule.keys()), k=2)
 
-        if len(schedule[machine_a]) > 0 and len(schedule[machine_b]) > 0:
-            break
+    if len(schedule[machine_a]) < 1 or len(schedule[machine_b]) < 1:
+        return random_move(schedule=schedule)
 
     task_a = random.randrange(len(schedule[machine_a]))
     task_b = random.randrange(len(schedule[machine_b]))

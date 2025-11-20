@@ -70,6 +70,7 @@ def exploit(
         operation, kwargs = random.choice(operation_pool)
         new_schedule = operation(**kwargs)
 
+    
     # Partial fix
     if precedences is not None:
         new_schedule = partial_precedence_repair(

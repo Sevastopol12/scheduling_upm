@@ -15,7 +15,7 @@ def objective_function(
     alpha_load: float = 100.0,  # Soft constraint
     alpha_energy: float = 1.0,  # Energy Exceed (Medium)
     verbose: bool = False,  # Detail để tune
-) -> Tuple:
+) -> Dict[str, float]:
     """Objective: Minimize makespan + penalty
     Guide Tune Alpha:
     1. Chạy random schedules để lấy typical makespan, std_dev
@@ -40,6 +40,7 @@ def objective_function(
     2. Verbose là 1 parameter trong code để logging chi tiết trong quá trình chạy để xem bên trong lúc debug xảy ra những gì
     --> Giúp điều chỉnh các thông số để dubug
     """
+    """Objective: Minimize makespan"""
 
     # Áp dụng ràng buộc resource
     task_completion_milestones = (
@@ -57,7 +58,7 @@ def objective_function(
     if precedences is not None:
         precedence_penalty, task_completion_milestones = precedence_constraint(
             schedule=schedule,
-            task_completion_milestones=task_completion_milestones,
+            task_completion_milestones=copy.deepcopy(task_completion_milestones),
             setups=setups,
             precedences=precedences,
         )
