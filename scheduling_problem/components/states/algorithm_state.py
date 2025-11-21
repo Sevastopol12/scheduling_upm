@@ -10,7 +10,6 @@ from ...scheduling_upm.algorithms.hybrid_woa_sa import Hybrid
 from ...components.chart.time_chart import plot_schedule_to_base64
 
 
-
 class State(rx.State):
     # Problem
     n_machines: int = 4
@@ -39,6 +38,10 @@ class State(rx.State):
     hybrid_history: list[dict[int, Any]] = []
     hybrid_cost: dict[str, Any] = {}
     hybrid_milestones: dict[int, dict[str, Any]] = {}
+
+    @rx.var
+    def get_task_length(self) -> int:
+        return len(self.tasks)
 
     @rx.event
     def apply_settings(self, env_param: dict[str, Any]):

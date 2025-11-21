@@ -40,8 +40,11 @@ def index() -> rx.Component:
             dicrection="column",
             paddingBottom="1em",
         ),
-        plot_schedule(),
-        rx.text(AlgorithmState.whales_history),
+        rx.cond(
+            AlgorithmState.get_task_length > 0,
+            plot_schedule(),
+            rx.fragment(),
+        ),
         direction="column",
         spacing="5",
         width="100%",
@@ -549,11 +552,17 @@ def plot_schedule():
                 rx.card(
                     rx.center(
                         rx.heading("Whales", font_size="1.6em"),
-                        rx.badge(
-                            f"{AlgorithmState.whales_cost['total_cost']:.3f}",
-                            variant="outline",
-                            size="3",
-                            color="accent",
+                        rx.center(
+                            rx.heading("Total cost:", font_size="1.3em"),
+                            rx.badge(
+                                f"{AlgorithmState.whales_cost['total_cost']:.3f}",
+                                variant="outline",
+                                size="3",
+                                color="accent",
+                            ),
+                            direction="row",
+                            spacing="3",
+                            width="100%",
                         ),
                         cost_value(AlgorithmState.whales_cost),
                         spacing="3",
@@ -566,11 +575,17 @@ def plot_schedule():
                 rx.card(
                     rx.center(
                         rx.heading("Hybrid", font_size="1.6em"),
-                        rx.badge(
-                            f"{AlgorithmState.hybrid_cost['total_cost']:.3f}",
-                            variant="outline",
-                            size="3",
-                            color="accent",
+                        rx.center(
+                            rx.heading("Total cost:", font_size="1.3em"),
+                            rx.badge(
+                                f"{AlgorithmState.hybrid_cost['total_cost']:.3f}",
+                                variant="outline",
+                                size="3",
+                                color="accent",
+                            ),
+                            direction="row",
+                            spacing="3",
+                            width="100%",
                         ),
                         cost_value(AlgorithmState.hybrid_cost),
                         spacing="3",
