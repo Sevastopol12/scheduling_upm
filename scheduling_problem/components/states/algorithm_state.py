@@ -138,9 +138,3 @@ class State(rx.State):
     @rx.var
     def hybrid_plot(self) -> Optional[str]:
         return plot_schedule_to_base64(self.hybrid_milestones, title="Hybrid Result")
-
-    @rx.var
-    def sa_cost_plot(self) -> Optional[str]:
-        return swarm_chart_to_base64(
-            self.sa_hi
-        )
