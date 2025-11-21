@@ -124,7 +124,7 @@ def slider_input(
                 variant="soft",
                 font_weight="medium",
                 radius="medium",
-                font_size="1em",
+                size="3",
                 color="accent",
             ),
             rx.slider(

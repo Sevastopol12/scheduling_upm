@@ -74,7 +74,7 @@ class WhaleOptimizationAlgorithm:
 
         self.initialize_population()
 
-        for iter in range(self.n_iterations):
+        for it in range(self.n_iterations):
             a = self.linearly_decrement(iter=iter)
 
             for agent_schedule in self.schedules:
@@ -138,15 +138,17 @@ class WhaleOptimizationAlgorithm:
                         new_cost=agent_schedule.cost,
                         new_milestones=milestones,
                     )
-                self.history.append(
-                    {
-                        "iteration": iter,
-                        # "iter_cost": self.current_schedule.cost,
-                        "iter_schedule": self.schedules,
-                        "best_schedule": self.best_schedule.schedule,
-                        "best_cost": self.best_schedule.cost,
-                    }
-                )
+            iter_cost = [agent.cost for agent in self.schedules]
+            iter_schedule = [agent.schedule for agent in self.schedules]
+            self.history.append(
+                {
+                    "iteration": it,
+                    "iter_cost": iter_cost,
+                    "iter_schedule": iter_schedule,
+                    "best_schedule": self.best_schedule.schedule,
+                    "best_cost": self.best_schedule.cost,
+                }
+            )
 
             # early stop when a got too small
             if a < 1e-8:

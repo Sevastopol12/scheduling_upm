@@ -10,7 +10,6 @@ from ..components.states.page_state import PageState
 from ..components.states.algorithm_state import State as AlgorithmState
 from ..components.chart.time_chart import schedule_chart
 
-
 @rx.page(route="/")
 def index() -> rx.Component:
     card_layout = {
@@ -42,6 +41,7 @@ def index() -> rx.Component:
             paddingBottom="1em",
         ),
         plot_schedule(),
+        rx.text(AlgorithmState.whales_history),
         direction="column",
         spacing="5",
         width="100%",
@@ -128,7 +128,7 @@ def algorithm_section(card_layout) -> rx.Component:
                     apply_button("bean", "seed", PageState.generate_seed, "grass"),
                     rx.badge(
                         PageState.seed,
-                        font_size="1em",
+                        size="3",
                         font_weight="regular",
                         variant="surface",
                         radius="full",
@@ -526,45 +526,122 @@ def plot_schedule():
                 rx.card(
                     rx.center(
                         rx.heading("Simulated Annealing", font_size="1.6em"),
+                        rx.center(
+                            rx.heading("Total cost:", font_size="1.3em"),
+                            rx.badge(
+                                f"{AlgorithmState.sa_cost['total_cost']:.3f}",
+                                variant="outline",
+                                size="3",
+                                color="accent",
+                            ),
+                            direction="row",
+                            spacing="3",
+                            width="100%",
+                        ),
+                        cost_value(AlgorithmState.sa_cost),
+                        spacing="3",
+                        direction="column",
                         paddingBottom="2em",
                     ),
-                    rx.hstack(
-                        schedule_chart(data=AlgorithmState.sa_plot),
-                        schedule_chart(data=AlgorithmState.sa_plot),
-                        spacing="4",
-                    ),
+                    schedule_chart(data=AlgorithmState.sa_plot),
                     width="100%",
                 ),
                 rx.card(
                     rx.center(
-                        rx.heading("Whales", font_size="1.6em"), paddingBottom="2em"
+                        rx.heading("Whales", font_size="1.6em"),
+                        rx.badge(
+                            f"{AlgorithmState.whales_cost['total_cost']:.3f}",
+                            variant="outline",
+                            size="3",
+                            color="accent",
+                        ),
+                        cost_value(AlgorithmState.whales_cost),
+                        spacing="3",
+                        direction="column",
+                        paddingBottom="2em",
                     ),
-                    rx.hstack(
-                        schedule_chart(data=AlgorithmState.whales_plot),
-                        schedule_chart(data=AlgorithmState.whales_plot),
-                        spacing="4",
-                    ),
+                    schedule_chart(data=AlgorithmState.whales_plot),
                     width="100%",
                 ),
                 rx.card(
                     rx.center(
-                        rx.heading("Hybrid", font_size="1.6em"), paddingBottom="2em"
+                        rx.heading("Hybrid", font_size="1.6em"),
+                        rx.badge(
+                            f"{AlgorithmState.hybrid_cost['total_cost']:.3f}",
+                            variant="outline",
+                            size="3",
+                            color="accent",
+                        ),
+                        cost_value(AlgorithmState.hybrid_cost),
+                        spacing="3",
+                        direction="column",
+                        paddingBottom="2em",
                     ),
-                    rx.hstack(
-                        schedule_chart(data=AlgorithmState.hybrid_plot),
-                        schedule_chart(data=AlgorithmState.hybrid_plot),
-                        spacing="4",
-                    ),
+                    schedule_chart(data=AlgorithmState.hybrid_plot),
                     width="100%",
                 ),
                 width="100%",
                 align="center",
             ),
-            height="88vh",
-            width="95vw",
+            height="85vh",
+            width="68vw",
             align="center",
         ),
+        paddingRight="0.7em",
         direction="column",
         spacing="6",
         width="100%",
+    )
+
+
+def cost_value(cost: dict) -> rx.Component:
+    badge_layout = {
+        "variant": "soft",
+        "font_weight": "medium",
+        "radius": "medium",
+        "font_size": "0.9em",
+        "color": "accent",
+    }
+    return rx.hstack(
+        rx.card(
+            rx.vstack(
+                rx.heading("Makespan", font_size="1.2em"),
+                rx.badge(cost["makespan"], **badge_layout),
+                width="100%",
+                align="center",
+            ),
+            width="100%",
+        ),
+        rx.card(
+            rx.vstack(
+                rx.heading("Deadlock", font_size="1.2em"),
+                rx.badge(
+                    f"{cost['precedence_penalty'].to(int) // int(1e6)}", **badge_layout
+                ),
+                width="100%",
+                align="center",
+            ),
+            width="100%",
+        ),
+        rx.card(
+            rx.vstack(
+                rx.heading("Load std_dev", font_size="1.2em"),
+                rx.badge(cost["std_dev"], **badge_layout),
+                width="100%",
+                align="center",
+            ),
+            width="100%",
+        ),
+        rx.card(
+            rx.vstack(
+                rx.heading("Energy exceeds", font_size="1.2em"),
+                rx.badge(cost["energy_exceeds"], **badge_layout),
+                width="100%",
+                align="center",
+            ),
+            width="100%",
+        ),
+        align="center",
+        justify="between",
+        width="80%",
     )

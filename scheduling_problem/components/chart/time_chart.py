@@ -31,7 +31,7 @@ def plot_schedule_to_base64(
     min_time = min(m["start_setup"] for m in milestones.values())
     max_time = max(m["complete_time"] for m in milestones.values())
     fig_width = 10
-    fig_height = 6
+    fig_height = 5
 
     # Machines
     machines = sorted(set(m["machine"] for m in milestones.values()))
@@ -127,8 +127,7 @@ def plot_schedule_to_base64(
     ax.set_xlabel("Time")
     ax.set_xlim(min_time - padding, max_time + padding)
 
-    ax.set_ylabel("Machines")
-    ax.set_title(title)
+    ax.set_title(title, fontsize=16, fontweight="bold")
 
     # Grid and legend
     ax.grid(True, axis="x", linestyle="--", alpha=0.4)

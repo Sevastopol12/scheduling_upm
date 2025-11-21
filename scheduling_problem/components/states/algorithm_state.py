@@ -8,7 +8,8 @@ from ...scheduling_upm.algorithms.simulated_annealing import SimulatedAnnealing
 from ...scheduling_upm.algorithms.whales_optim import WhaleOptimizationAlgorithm
 from ...scheduling_upm.algorithms.hybrid_woa_sa import Hybrid
 from ...components.chart.time_chart import plot_schedule_to_base64
-from ...components.chart.cost_chart import swarm_chart_to_base64
+
+
 
 class State(rx.State):
     # Problem
@@ -25,17 +26,17 @@ class State(rx.State):
 
     # solution
     sa_schedule: dict[int, list[int]] = {}
-    sa_history: list[dict[int, Any]]
+    sa_history: list[dict[int, Any]] = []
     sa_cost: dict[str, Any] = {}
     sa_milestones: dict[int, dict[str, Any]] = {}
 
     whales_schedule: dict[int, list[int]] = {}
-    whales_history: list[dict[int, Any]]
+    whales_history: list[dict[int, Any]] = []
     whales_cost: dict[str, Any] = {}
     whales_milestones: dict[int, dict[str, Any]] = {}
 
     hybrid_schedule: dict[int, list[int]] = {}
-    hybrid_history: list[dict[int, Any]]
+    hybrid_history: list[dict[int, Any]] = []
     hybrid_cost: dict[str, Any] = {}
     hybrid_milestones: dict[int, dict[str, Any]] = {}
 
@@ -106,9 +107,12 @@ class State(rx.State):
                         n_iterations=self.n_iterations,
                         explore_ratio=self.hybrid_explore_ratio,
                     ).optimize
-                )
+                ),
             ]
-            (sa_solution, whales_solution, hybrid_solution) = await asyncio.gather(*tasks)
+            (sa_solution, whales_solution, hybrid_solution) = await asyncio.gather(
+                *tasks
+            )
+            print(whales_solution["history"])
 
             self.sa_cost = sa_solution["best_cost"]
             self.sa_history = sa_solution["history"]
@@ -134,7 +138,7 @@ class State(rx.State):
     @rx.var
     def whales_plot(self) -> Optional[str]:
         return plot_schedule_to_base64(self.whales_milestones, title="Whales Result")
-    
+
     @rx.var
     def hybrid_plot(self) -> Optional[str]:
         return plot_schedule_to_base64(self.hybrid_milestones, title="Hybrid Result")
