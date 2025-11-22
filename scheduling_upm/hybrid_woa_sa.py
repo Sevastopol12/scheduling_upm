@@ -1,7 +1,6 @@
 import copy
-import time
 import random
-from typing import List
+from typing import List, Dict, Any
 
 from scheduling_upm.utils.evaluation import objective_function
 from scheduling_upm.utils.entities import Schedule
@@ -15,140 +14,177 @@ from scheduling_upm.strategies.sa_strategy import exploit as sa_exploit
 
 
 # Mình sẽ dùng WOA để khám phá toàn cục, SA để khai thác cục bộ
-def initialize_population(  # tạo dữ liệu ban đầu - điểm xuất phát
-    n_schedules: int,
-    tasks,
-    n_machines: int,
-    setups,
-    precedences,
-    energy_constraint: dict | None = None,
-    total_resource: int | None = None,
-) -> List[Schedule]:
-    pop = []
-    for _ in range(n_schedules):
-        sched = generate_schedule(tasks=tasks, n_machines=n_machines)
-        cost_dict = objective_function(
-            schedule=sched,
-            tasks=tasks,
-            setups=setups,
-            precedences=precedences,
-            energy_constraint=energy_constraint,
-            total_resource=total_resource,
+class Hybrid:
+    def __init__(
+        self,
+        tasks,
+        setups,
+        precedences,
+        n_machines: int | None = None,
+        n_schedules: int = 10,
+        n_iterations: int = 100,
+        sa_local_iters: int = 10,
+        energy_constraint: dict | None = None,
+        total_resource: int | None = None,
+        explore_ratio: float = 0.5,
+        alpha_load: float = 0.25,  # Soft constraint
+        alpha_energy: float = 0.25,  # Energy Exceed (Medium)
+    ):
+        self.tasks = tasks
+        self.setups = setups
+        self.n_machines = n_machines
+        self.n_schedules = n_schedules
+        self.n_iterations = n_iterations
+        self.sa_local_iters = sa_local_iters
+        self.precedences = precedences or None
+        self.energy_constraint = energy_constraint or None
+        self.total_resource = total_resource or None
+        self.explore_ratio = explore_ratio
+        self.alpha_load = alpha_load
+        self.alpha_energy = alpha_energy
+
+        self.best = None
+        self.population: List[Schedule] = []
+        self.history = []
+
+    # Mình sẽ dùng WOA để khám phá toàn cục, SA để khai thác cục bộ
+    # tạo dữ liệu ban đầu - điểm xuất phát
+    def initialize_population(self):
+        for _ in range(self.n_schedules):
+            sched = generate_schedule(tasks=self.tasks, n_machines=self.n_machines)
+            cost_dict = objective_function(
+                schedule=sched,
+                tasks=self.tasks,
+                setups=self.setups,
+                precedences=self.precedences,
+                energy_constraint=self.energy_constraint,
+                total_resource=self.total_resource,
+                alpha_energy=self.alpha_energy,
+                alpha_load=self.alpha_load,
+            )
+
+            milestones = cost_dict.pop("task_milestones")
+            self.population.append(
+                Schedule(schedule=sched, cost=cost_dict, milestones=milestones)
+            )
+
+        self.best = copy.deepcopy(
+            min(self.population, key=lambda s: s.cost["total_cost"])
         )
-        pop.append(Schedule(schedule=sched, cost=cost_dict))
-    return pop
 
+    # xét a, lần lượt dùng woa để cập nhập và SA để tinh chỉnh
+    def optimize(self) -> Dict[str, Any]:
+        if len(self.tasks) < 1:
+            return None, []
 
-def linearly_decrement(iter: int, n_iterations: int):
-    # khởi tạo giá trị quyết định tính khám phá
-    return 2 - 2 * (iter / max(1, n_iterations))
+        self.initialize_population()
 
+        for it in range(self.n_iterations):
+            a = self.linearly_decrement(iter=it)
 
-def hybrid_woa_sa(
-    tasks,
-    setups,
-    precedences,
-    n_machines: int | None = None,
-    n_schedules: int = 10,
-    n_iterations: int = 100,
-    sa_local_iters: int = 10,
-    energy_constraint: dict | None = None,
-    total_resource: int | None = None,
-):
-    population = initialize_population(
-        n_schedules=n_schedules,
-        tasks=tasks,
-        n_machines=n_machines,
-        setups=setups,
-        precedences=precedences,
-        energy_constraint=energy_constraint,
-        total_resource=total_resource,
-    )
+            for i, whale in enumerate(self.population):
+                A = 2 * a * random.random() - a
+                p = random.random()
 
-    best = copy.deepcopy(min(population, key=lambda s: s.cost["total_cost"]))
-
-    start = time.time()
-    for it in range(
-        n_iterations
-    ):  # xét a, lần lượt dùng woa để cập nhập và SA để tinh chỉnh
-        a = linearly_decrement(iter=it, n_iterations=n_iterations)
-
-        for i, whale in enumerate(population):
-            A = 2 * a * random.random() - a
-            p = random.random()
-
-            if p < 0.5:
-                if abs(A) <= 1:
-                    n_moves = (
-                        random.randint(1, max(1, int(a * 10)))
-                        if a <= 0.3
-                        else random.randint(1, 5)
-                    )
-                    candidate = discrete_shrinking_mechanism(
-                        best_schedule=best.schedule,
-                        obj_function=objective_function,
-                        tasks=tasks,
-                        setups=setups,
-                        precedences=precedences,
-                        energy_constraint=energy_constraint,
-                        total_resource=total_resource,
-                        n_moves=n_moves,
-                    )
+                if p < self.explore_ratio:
+                    if abs(A) <= 1:
+                        n_moves = (
+                            random.randint(1, max(1, int(a * 10)))
+                            if a <= 0.3
+                            else random.randint(1, 5)
+                        )
+                        candidate = discrete_shrinking_mechanism(
+                            best_schedule=copy.deepcopy(self.best.schedule),
+                            obj_function=objective_function,
+                            tasks=self.tasks,
+                            setups=self.setups,
+                            precedences=self.precedences,
+                            energy_constraint=self.energy_constraint,
+                            total_resource=self.total_resource,
+                            n_moves=n_moves,
+                            alpha_energy=self.alpha_energy,
+                            alpha_load=self.alpha_load,
+                        )
+                    else:
+                        candidate = woa_random_explore(
+                            schedule=copy.deepcopy(whale.schedule), tasks=self.tasks
+                        )
                 else:
-                    candidate = woa_random_explore(schedule=whale.schedule, tasks=tasks)
-            else:
-                candidate = discrete_spiral_update(
-                    schedule=whale.schedule, best_schedule=best.schedule
-                )
+                    candidate = discrete_spiral_update(
+                        schedule=copy.deepcopy(whale.schedule),
+                        best_schedule=copy.deepcopy(self.best.schedule),
+                    )
 
-            candidate_cost = objective_function(
-                schedule=copy.deepcopy(candidate),
-                tasks=tasks,
-                setups=setups,
-                precedences=precedences,
-                energy_constraint=energy_constraint,
-                total_resource=total_resource,
-            )
-
-            for _ in range(sa_local_iters):  # SA tinh chỉnh giúp WOA ở đây
-                candidate_schedule = sa_exploit(
+                candidate_cost = objective_function(
                     schedule=copy.deepcopy(candidate),
-                    tasks=tasks,
-                    obj_function=objective_function,
-                    precedences=precedences,
-                    setups=setups,
-                    energy_constraint=energy_constraint,
-                    total_resource=total_resource,
+                    tasks=self.tasks,
+                    setups=self.setups,
+                    precedences=self.precedences,
+                    energy_constraint=self.energy_constraint,
+                    total_resource=self.total_resource,
+                    alpha_energy=self.alpha_energy,
+                    alpha_load=self.alpha_load,
                 )
 
-                new_cost = objective_function(
-                    schedule=candidate_schedule,
-                    tasks=tasks,
-                    setups=setups,
-                    precedences=precedences,
-                    energy_constraint=energy_constraint,
-                    total_resource=total_resource,
+                for _ in range(self.sa_local_iters):  # SA tinh chỉnh giúp WOA ở đây
+                    temp_candidate = sa_exploit(
+                        schedule=copy.deepcopy(candidate),
+                        tasks=self.tasks,
+                        obj_function=objective_function,
+                        precedences=self.precedences,
+                        setups=self.setups,
+                        energy_constraint=self.energy_constraint,
+                        total_resource=self.total_resource,
+                        alpha_energy=self.alpha_energy,
+                        alpha_load=self.alpha_load,
+                    )
+
+                    new_cost = objective_function(
+                        schedule=temp_candidate,
+                        tasks=self.tasks,
+                        setups=self.setups,
+                        precedences=self.precedences,
+                        energy_constraint=self.energy_constraint,
+                        total_resource=self.total_resource,
+                        alpha_energy=self.alpha_energy,
+                        alpha_load=self.alpha_load,
+                    )
+
+                    if new_cost["total_cost"] < candidate_cost["total_cost"]:
+                        candidate = copy.deepcopy(temp_candidate)
+                        candidate_cost = new_cost
+                        break
+
+                milestones = candidate_cost.pop("task_milestones")
+                # tiến hành cập nhật cá voi nếu tìm được ứng viên tốt hơn
+                if candidate_cost["total_cost"] < whale.cost["total_cost"]:
+                    whale.update(
+                        new_schedule=copy.deepcopy(candidate),
+                        new_cost=candidate_cost,
+                        new_milestones=milestones,
+                    )
+
+                if whale.cost["total_cost"] < self.best.cost["total_cost"]:
+                    self.best = copy.deepcopy(whale)
+
+                self.history.append(
+                    {
+                        "iteration": it,
+                        "iter_cost": [agent.cost for agent in self.population],
+                        "iter_schedule": self.population,
+                        "best_schedule": self.best.schedule,
+                        "best_cost": self.best.cost,
+                    }
                 )
+                print(self.best.cost)
 
-                if new_cost["total_cost"] < candidate_cost["total_cost"]:
-                    candidate_cost = new_cost
-                    break
+        return {
+            "best_schedule": self.best.schedule,
+            "best_cost": self.best.cost,
+            "milestones": self.best.milestones,
+            "history": self.history,
+        }
 
-            # tiến hành cập nhật cá voi nếu tìm được ứng viên tốt hơn
-            if candidate_cost["total_cost"] < whale.cost["total_cost"]:
-                whale.update(
-                    new_schedule=copy.deepcopy(candidate_schedule),
-                    new_cost=candidate_cost,
-                )
-
-            if whale.cost["total_cost"] < best.cost["total_cost"]:
-                best = copy.deepcopy(whale)
-
-        if (it + 1) % max(1, n_iterations // 10) == 0:
-            elapsed = time.time() - start
-            print(
-                f"iter {it + 1}/{n_iterations} best_cost={best.cost["total_cost"]:.3f} elapsed={elapsed:.2f}s"
-            )
-
-    total_time = time.time() - start
-    return best, total_time
+    def linearly_decrement(self, iter: int):
+        # khởi tạo giá trị quyết định tính khám phá
+        return 2 - 2 * (iter / max(1, self.n_iterations))

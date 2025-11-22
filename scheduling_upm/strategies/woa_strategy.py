@@ -72,6 +72,8 @@ def discrete_shrinking_mechanism(
     energy_constraint: Dict[str, Any],
     total_resource: Dict[str, Any],
     n_moves: int = 2,
+    alpha_energy: float = 0.25,
+    alpha_load: float = 0.25,
 ) -> Dict[int, List[int]]:
     """
     Design specifically for WOA. Creates a new schedule by making small random adjustments to the best schedule
@@ -91,6 +93,8 @@ def discrete_shrinking_mechanism(
                 "precedences": precedences,
                 "energy_constraint": energy_constraint,
                 "total_resource": total_resource,
+                "alpha_energy": alpha_energy,
+                "alpha_load": alpha_load
             },
         ),
     ]

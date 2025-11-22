@@ -10,6 +10,7 @@ from .strategies.woa_strategy import (
 from .utils.evaluation import objective_function
 from .utils.entities import Schedule
 
+
 class WhaleOptimizationAlgorithm:
     """
     Whale Optimization Algorithm
@@ -24,7 +25,9 @@ class WhaleOptimizationAlgorithm:
         n_iterations: int = 1000,
         precedences: Dict[int, Set] = None,
         total_resource: int = None,
-        energy_constraint: Dict[str, Any] = None
+        energy_constraint: Dict[str, Any] = None,
+        alpha_load: float = 0.25,  # Soft constraint
+        alpha_energy: float = 0.25,  # Energy Exceed (Medium)
     ):
         if n_machines <= 0 or n_schedules <= 0:
             raise ValueError()
@@ -37,6 +40,9 @@ class WhaleOptimizationAlgorithm:
         self.precedences = precedences or None
         self.energy_constraint = energy_constraint or None
         self.total_resource = total_resource or None
+        self.alpha_load = alpha_load
+        self.alpha_energy = alpha_energy
+
         self.schedules: List[Schedule] = []
         self.best_schedule: Schedule = None
         self.history = []
@@ -51,10 +57,13 @@ class WhaleOptimizationAlgorithm:
                 setups=self.setups,
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
-                alpha_load=50.0,
-                verbose=True
+                alpha_energy=self.alpha_energy,
+                alpha_load=self.alpha_load,
             )
-            self.schedules.append(Schedule(schedule=schedule, cost=cost))
+            milestones = cost.pop("task_milestones")
+            self.schedules.append(
+                Schedule(schedule=schedule, cost=cost, milestones=milestones)
+            )
 
         self.best_schedule = copy.deepcopy(
             min(self.schedules, key=lambda schedule: schedule.cost["total_cost"])
@@ -105,14 +114,16 @@ class WhaleOptimizationAlgorithm:
                     precedences=self.precedences,
                     energy_constraint=self.energy_constraint,
                     total_resource=self.total_resource,
-                    alpha_load=50.0,
-                    verbose=True
+                    alpha_energy=self.alpha_energy,
+                    alpha_load=self.alpha_load,
                 )
+                milestones = candidate_cost.pop("task_milestones")
 
                 if candidate_cost["total_cost"] < agent_schedule.cost["total_cost"]:
                     agent_schedule.update(
                         new_schedule=copy.deepcopy(candidate_schedule),
                         new_cost=candidate_cost,
+                        new_milestones=milestones,
                     )
 
                 if (
@@ -122,16 +133,18 @@ class WhaleOptimizationAlgorithm:
                     self.best_schedule.update(
                         new_schedule=copy.deepcopy(agent_schedule.schedule),
                         new_cost=agent_schedule.cost,
+                        new_milestones=milestones,
                     )
                 self.history.append(
                     {
                         "iteration": iter,
-                        # "iter_cost": self.current_schedule.cost,
+                        "iter_cost": [agent.cost for agent in self.schedules],
                         "iter_schedule": self.schedules,
                         "best_schedule": self.best_schedule.schedule,
                         "best_cost": self.best_schedule.cost,
                     }
                 )
+                print(self.best_schedule.cost)
 
             # early stop when a got too small
             if a < 1e-8:

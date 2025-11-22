@@ -11,10 +11,8 @@ def objective_function(
     precedences: Dict[int, Any] = None,
     energy_constraint: Dict[str, Any] = None,
     total_resource: int = None,
-    alpha_precedence: float = 10**6, # Hard constraint
-    alpha_load: float = 100.0,  # Soft constraint
-    alpha_energy: float = 1.0,  # Energy Exceed (Medium)
-    verbose: bool = False,  # Detail để tune
+    alpha_load: float = 0.25,  # Soft constraint
+    alpha_energy: float = 0.25,  # Energy Exceed (Medium)
 ) -> Dict[str, float]:
     """Objective: Minimize makespan + penalty
     Guide Tune Alpha:
@@ -27,12 +25,6 @@ def objective_function(
     4. Adaptive: Nếu std_dev cuối > threshold (e.g. 500), tăng alpha_load x2 và rerun
 
     --> Logging chi tiết để debug & tune các tham số để thử nghiệm
-    if verbose:
-        print(f"Makespan: {makespan}")
-        print(f"Precedence Penalty (raw): {precedence_penalty} -> Weighted: {alpha_precedence * precedence_penalty}")
-        print(f"Load Std Dev (raw): {std_dev} -> Weighted Penalty: {alpha_load * std_dev}")
-        print(f"Energy Penalty (raw): {energy_penalty} -> Weighted: {alpha_energy * energy_penalty}")
-        print(f"Total Cost: {cost}")
 
     Giải thích nghĩa
     1. Tune dùng để thí nghiệm & điều chỉnh các tham số để cải thiện performance. Trong trường hợp này, nó sẽ thử nghiệm & chọn best value cho alphas
@@ -82,19 +74,21 @@ def objective_function(
 
     # Cost
     cost = (
-        makespan + 
-        alpha_precedence * precedence_penalty +
-        alpha_load * std_dev +
-        alpha_energy * energy_exceeds_penalty
+        makespan * (1 - alpha_load - alpha_energy)
+        + precedence_penalty * int(1e6)
+        + alpha_load * std_dev
+        + alpha_energy * energy_exceeds_penalty
     )
 
     return {
         "total_cost": cost,
         "makespan": makespan,
-        "precedence_penalty": alpha_precedence * precedence_penalty,
+        "precedence_penalty": precedence_penalty,
         "std_dev": alpha_load * std_dev,
         "energy_exceeds": alpha_energy * energy_exceeds_penalty,
+        "task_milestones": task_completion_milestones,
     }
+
 
 def compute_makespan(task_milestones: Dict[int, int]) -> Tuple[int, int]:
     makespan = max(task["complete_time"] for task in task_milestones.values())
@@ -380,6 +374,7 @@ def apply_resource_constraint(
 
     return final_schedule
 
+
 def calculate_machine_loads(schedule, n_machines, tasks):
     """
     Tính tổng load (weighted duration) của mỗi machine
@@ -400,7 +395,8 @@ def calculate_machine_loads(schedule, n_machines, tasks):
             weight = task.get("weight", 1)
             machine_loads[machine_id] += process_time * weight
     return machine_loads
-    
+
+
 def calculate_load_standard_deviation(schedule, n_machines, tasks):
     """
     Tính std_dev của load các máy

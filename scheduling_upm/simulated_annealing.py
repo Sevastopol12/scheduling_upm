@@ -17,17 +17,24 @@ class SimulatedAnnealing:
         precedences: Dict[int, Set] = None,
         energy_constraint: Dict[str, Any] = None,
         total_resource: Dict[str, Any] = None,
-        n_iterations: int = 1000,
+        explore_ratio: float = 0.7,
+        n_iterations: int = 1,
         initial_temp: float = 1000.0,
+        alpha_load: float = 0.25,  # Soft constraint
+        alpha_energy: float = 0.25,  # Energy Exceed (Medium)
     ):
         self.tasks = tasks
         self.setups = setups
         self.n_machines = n_machines
         self.n_iterations = n_iterations
+        self.explore_ratio = explore_ratio
         self.precedences = precedences or None
         self.energy_constraint = energy_constraint or None
         self.total_resource = total_resource or None
         self.initial_temp = initial_temp
+        self.alpha_load = alpha_load
+        self.alpha_energy = alpha_energy
+
         self.best_schedule = None
         self.current_schedule = None
         self.history = []
@@ -39,13 +46,19 @@ class SimulatedAnnealing:
             tasks=self.tasks,
             setups=self.setups,
             precedences=self.precedences,
-            alpha_load=50.0,
-            verbose=True,
+            alpha_energy=self.alpha_energy,
+            alpha_load=self.alpha_load,
             total_resource=self.total_resource,
         )
 
-        self.current_schedule = Schedule(schedule=schedule, cost=cost)
-        self.best_schedule = Schedule(schedule=schedule, cost=cost)
+        milestones = cost.pop("task_milestones")
+
+        self.current_schedule = Schedule(
+            schedule=schedule, cost=cost, milestones=milestones
+        )
+        self.best_schedule = Schedule(
+            schedule=schedule, cost=cost, milestones=milestones
+        )
         self.history.append(
             {
                 "iteration": 0,
@@ -56,7 +69,10 @@ class SimulatedAnnealing:
             }
         )
 
-    def optimize(self) -> Tuple[Schedule, List[Dict]]:
+    def optimize(self) -> Dict[str, Any]:
+        if len(self.tasks) < 0:
+            return None, self.history
+
         self.initialize_schedule()
         for iter in range(self.n_iterations):
             temperature: float = self.cooling_down(
@@ -69,7 +85,7 @@ class SimulatedAnnealing:
             progress: float = iter / self.n_iterations
 
             # Explore
-            if probability < 0.7 * (1 - progress):
+            if probability < self.explore_ratio * (1 - progress):
                 candidate_schedule = random_explore(
                     schedule=copy.deepcopy(self.current_schedule.schedule),
                     tasks=self.tasks,
@@ -86,6 +102,8 @@ class SimulatedAnnealing:
                     energy_constraint=self.energy_constraint,
                     total_resource=self.total_resource,
                     n_ops=random.randint(1, 3),
+                    alpha_energy=self.alpha_energy,
+                    alpha_load=self.alpha_load,
                 )
 
             candidate_cost = objective_function(
@@ -95,9 +113,11 @@ class SimulatedAnnealing:
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
                 total_resource=self.total_resource,
-                alpha_load=50.0,
-                verbose=True
+                alpha_energy=self.alpha_energy,
+                alpha_load=self.alpha_load,
             )
+
+            milestones = candidate_cost.pop("task_milestones")
 
             acp: float = self.acceptance_probability(
                 old_cost=self.best_schedule.cost["total_cost"],
@@ -109,23 +129,26 @@ class SimulatedAnnealing:
                 self.current_schedule.update(
                     new_schedule=copy.deepcopy(candidate_schedule),
                     new_cost=copy.deepcopy(candidate_cost),
+                    new_milestones=milestones,
                 )
 
             if candidate_cost["total_cost"] < self.best_schedule.cost["total_cost"]:
                 self.best_schedule.update(
                     new_schedule=copy.deepcopy(candidate_schedule),
                     new_cost=copy.deepcopy(candidate_cost),
+                    new_milestones=milestones,
                 )
 
             self.history.append(
                 {
-                    "iteration": iter +1,
+                    "iteration": iter + 1,
                     "iter_cost": self.current_schedule.cost,
                     "iter_schedule": copy.deepcopy(self.current_schedule.schedule),
                     "best_schedule": copy.deepcopy(self.best_schedule.schedule),
                     "best_cost": self.best_schedule.cost,
                 }
             )
+            print(self.best_schedule.cost)
 
             # early stop when temperature got too small
             if temperature < 1e-8:

@@ -46,6 +46,8 @@ def exploit(
     precedences: Dict[int, List[int]] = None,
     setups: List[Tuple[int, int]] = None,
     total_resource: Dict[int, Any] = None,
+    alpha_energy: float = 0.25,
+    alpha_load: float = 0.25,
 ):
     # Exploit
     operation_pool: List[Tuple[callable, Dict]] = [
@@ -62,6 +64,8 @@ def exploit(
                 "precedences": precedences,
                 "setups": setups,
                 "total_resource": total_resource,
+                "alpha_energy": alpha_energy,
+                "alpha_load": alpha_load,
             },
         ),
     ]
@@ -70,7 +74,6 @@ def exploit(
         operation, kwargs = random.choice(operation_pool)
         new_schedule = operation(**kwargs)
 
-    
     # Partial fix
     if precedences is not None:
         new_schedule = partial_precedence_repair(

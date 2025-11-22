@@ -156,6 +156,8 @@ def lookahead_insertion(
     obj_function: callable,
     tasks: Dict[int, Any],
     setups: Dict[Tuple[int, int], int],
+    alpha_energy: float,
+    alpha_load: float,
     energy_constraint: Dict[str, Any] = None,
     precedences: Dict[int, Set[int]] = None,
     total_resource: int = None,
@@ -170,6 +172,8 @@ def lookahead_insertion(
         precedences=precedences,
         energy_constraint=energy_constraint,
         total_resource=total_resource,
+        alpha_load=alpha_load,
+        alpha_energy=alpha_energy,
     )
 
     machine = random.choice(
@@ -191,6 +195,8 @@ def lookahead_insertion(
             precedences=precedences,
             energy_constraint=energy_constraint,
             total_resource=total_resource,
+            alpha_load=alpha_load,
+            alpha_energy=alpha_energy,
         )
 
         if candidate_cost["total_cost"] < current_cost["total_cost"]:
