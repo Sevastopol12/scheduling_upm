@@ -71,6 +71,8 @@ def discrete_shrinking_mechanism(
     precedences: Dict[int, List[int]],
     energy_constraint: Dict[str, Any],
     total_resource: Dict[str, Any],
+    alpha_load: float,  # Soft constraint
+    alpha_energy: float,  # Energy Exceed (Medium),
     n_moves: int = 2,
 ) -> Dict[int, List[int]]:
     """
@@ -91,6 +93,8 @@ def discrete_shrinking_mechanism(
                 "precedences": precedences,
                 "energy_constraint": energy_constraint,
                 "total_resource": total_resource,
+                "alpha_load": alpha_load,
+                "alpha_energy": alpha_energy,
             },
         ),
     ]

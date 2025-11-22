@@ -4,6 +4,7 @@ from collections import defaultdict
 
 
 def generate_environment(
+    custom_tasks={},
     n_tasks: int = 15,
     n_machines: int = 4,
     setup_relations: bool = True,
@@ -41,7 +42,7 @@ def generate_environment(
 
     # Generate tasks
     tasks: Dict[int, Any] = {}
-    for t in range(n_tasks):
+    for t in range(len(custom_tasks), n_tasks):
         times: List[int] = process_time_on_each_machine(n_machines=n_machines)
         resource: int = (
             0
@@ -64,7 +65,7 @@ def generate_environment(
     # phần setup_time tạo ở đây nên t cx tạo cái precedences ở đây luôn
     # tạo precedence mà ở đây lấy giá trị tham số n_task mà phúc dương đã tạo trong hàm này làm giá trị đầu vào cho hàm được gọi
     precedences = (
-        generate_precedence_constraints(n_tasks=n_tasks)
+        generate_precedence_constraints(n_tasks=n_tasks, n_precedences=n_precedences)
         if n_precedences is not None
         else None
     )
@@ -160,8 +161,8 @@ def generate_precedence_constraints(
     # do hồi bữa phúc dương kêu là nếu cho random tới max relation luôn thì nhiều quá nên t giảm bớt v, lấy tối đa của nó là 1/3 ha
     num_relations = (
         n_precedences
-        if n_precedences != -1
-        else random.randint(1, int(max_relations * 0.2))
+        if n_precedences > 0
+        else random.randint(0, int(max_relations * 0.2))
     )
 
     for new_relations in range(num_relations):

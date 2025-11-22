@@ -15,6 +15,9 @@ class PageState(rx.State):
     # setups
     use_setups: bool = True
 
+    # load balance
+    use_load_balance: bool = True
+
     # resource
     resources_cap: str = "-1"
     resources_bound: list[str, str] = ["0", "0"]
@@ -63,10 +66,14 @@ class PageState(rx.State):
         if value != "":
             self.n_precedences = value
 
-    # Setups
     @rx.event
     def apply_setups(self, value: bool):
         self.use_setups = value
+
+    # Load balance
+    @rx.event
+    def apply_load_balance(self, value: bool):
+        self.use_load_balance = value
 
     # Resources
     @rx.event
@@ -155,6 +162,8 @@ class PageState(rx.State):
         self.resources_bound = ["0", "-1"]
         self.energy_cap = "-1"
         self.energy_bound = ["0", "-1"]
+        self.alpha_energy = 0.25
+        self.alpha_load = 0.25
         self.seed = "2503"
 
     @rx.event
@@ -188,11 +197,13 @@ class PageState(rx.State):
     async def generate_environment(self):
         async with self:
             algorithm_state = await self.get_state(AlgorithmState)
+            yield
             algorithm_state.apply_settings(
                 env_param={
                     "n_machines": int(self.n_machines),
                     "n_tasks": int(self.n_tasks),
                     "setup_relations": self.use_setups,
+                    "load_balance": self.use_load_balance,
                     "n_precedences": int(self.n_precedences)
                     if self.use_precedences
                     else None,
@@ -213,6 +224,8 @@ class PageState(rx.State):
                     if self.use_energy_cap
                     else None,
                     "seed": self.seed,
+                    "alpha_load": self.alpha_load,
+                    "alpha_energy": self.alpha_energy,
                 }
             )
 

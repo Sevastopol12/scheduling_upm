@@ -1,7 +1,6 @@
 import copy
-import time
 import random
-from typing import Dict, Any, Tuple, Set, List
+from typing import Dict, Any, List
 
 from ..utils.evaluation import objective_function
 from ..utils.entities import Schedule
@@ -28,6 +27,9 @@ class Hybrid:
         energy_constraint: dict | None = None,
         total_resource: int | None = None,
         explore_ratio: float = 0.5,
+        alpha_load: float = 0.25,  # Soft constraint
+        alpha_energy: float = 0.25,  # Energy Exceed (Medium)
+        seed=None
     ):
         self.tasks = tasks
         self.setups = setups
@@ -39,6 +41,9 @@ class Hybrid:
         self.energy_constraint = energy_constraint or None
         self.total_resource = total_resource or None
         self.explore_ratio = explore_ratio
+        self.alpha_load = alpha_load
+        self.alpha_energy = alpha_energy
+        self.seed=seed
 
         self.best = None
         self.population: List[Schedule] = []
@@ -56,6 +61,8 @@ class Hybrid:
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
                 total_resource=self.total_resource,
+                alpha_energy=self.alpha_energy,
+                alpha_load=self.alpha_load,
             )
 
             milestones = cost_dict.pop("task_milestones")
@@ -71,6 +78,8 @@ class Hybrid:
     def optimize(self) -> Dict[str, Any]:
         if len(self.tasks) < 1:
             return None, []
+        if self.seed is not None:  # keep task generation consistent
+            random.seed(self.seed)
 
         self.initialize_population()
 
@@ -115,6 +124,8 @@ class Hybrid:
                     precedences=self.precedences,
                     energy_constraint=self.energy_constraint,
                     total_resource=self.total_resource,
+                    alpha_energy=self.alpha_energy,
+                    alpha_load=self.alpha_load,
                 )
 
                 for _ in range(self.sa_local_iters):  # SA tinh chỉnh giúp WOA ở đây
@@ -135,7 +146,8 @@ class Hybrid:
                         precedences=self.precedences,
                         energy_constraint=self.energy_constraint,
                         total_resource=self.total_resource,
-                        alpha_load=50.0,
+                        alpha_energy=self.alpha_energy,
+                        alpha_load=self.alpha_load,
                     )
 
                     if new_cost["total_cost"] < candidate_cost["total_cost"]:

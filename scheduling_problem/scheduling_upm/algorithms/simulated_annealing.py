@@ -20,6 +20,8 @@ class SimulatedAnnealing:
         explore_ratio: float = 0.7,
         n_iterations: int = 1,
         initial_temp: float = 1000.0,
+        alpha_load: float = 0.25,  # Soft constraint
+        alpha_energy: float = 0.25,  # Energy Exceed (Medium)
     ):
         self.tasks = tasks
         self.setups = setups
@@ -30,6 +32,9 @@ class SimulatedAnnealing:
         self.energy_constraint = energy_constraint or None
         self.total_resource = total_resource or None
         self.initial_temp = initial_temp
+        self.alpha_load = alpha_load
+        self.alpha_energy = alpha_energy
+
         self.best_schedule = None
         self.current_schedule = None
         self.history = []
@@ -41,7 +46,8 @@ class SimulatedAnnealing:
             tasks=self.tasks,
             setups=self.setups,
             precedences=self.precedences,
-            alpha_load=50.0,
+            alpha_energy=self.alpha_energy,
+            alpha_load=self.alpha_load,
             verbose=True,
             total_resource=self.total_resource,
         )
@@ -96,6 +102,8 @@ class SimulatedAnnealing:
                     setups=self.setups,
                     energy_constraint=self.energy_constraint,
                     total_resource=self.total_resource,
+                    alpha_energy=self.alpha_energy,
+                    alpha_load=self.alpha_load,
                     n_ops=random.randint(1, 3),
                 )
 
@@ -106,7 +114,8 @@ class SimulatedAnnealing:
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
                 total_resource=self.total_resource,
-                alpha_load=50.0,
+                alpha_energy=self.alpha_energy,
+                alpha_load=self.alpha_load,
                 verbose=True,
             )
 

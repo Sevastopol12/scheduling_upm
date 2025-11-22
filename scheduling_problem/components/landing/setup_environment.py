@@ -4,39 +4,6 @@ from typing import Any, Optional
 from reflex.components.radix.themes.base import LiteralAccentColor
 
 
-class State(rx.State):
-    n_tasks: int = 0
-    n_machines: int = 0
-    seed: Optional[int] = None
-    energy_constraint: dict[str, Any] = {}
-    energy_cap: Optional[int] = None
-
-    @rx.event
-    def set_n_tasks(self, value: str):
-        if value != "":
-            self.n_tasks = int(value)
-
-    @rx.event
-    def set_n_machines(self, value: str):
-        if value != "":
-            self.n_machines = int(value)
-
-    @rx.event
-    def set_energy_cap(self, value: str):
-        if value != "":
-            self.energy_cap = int(value)
-
-    @rx.event
-    def set_resource_cap(self, value: str):
-        if value != "":
-            self.resource_cap = int(value)
-
-    @rx.event
-    def set_seed(self, value: str):
-        if value != "":
-            self.resource_cap = int(value)
-
-
 def apply_button(
     icon: str, title: str, on_click: callable, color_scheme: LiteralAccentColor
 ):
@@ -57,21 +24,42 @@ def apply_button(
 
 
 def selected_chips(
-    title: str, icon: str, on_click: callable, color_scheme: LiteralAccentColor
+    title: str = "temp",
+    icon: Optional[str] = "",
+    on_click: callable = None,
+    color_scheme: LiteralAccentColor = "violet",
 ) -> rx.Component:
     return rx.badge(
         rx.hstack(
             rx.text(title, font_size="1.2em", font_weight="regular"),
-            rx.icon(icon, size=14),
+            rx.cond(icon != "", rx.icon(icon, size=14), rx.fragment()),
             align="center",
             justify="between",
+            width="100%",
         ),
-        radius="medium",
+        radius="full",
         size="3",
-        variant="outline",
+        variant="surface",
         cursor="pointer",
         style={"_hover": {"opacity": 0.75}},
         color_scheme=color_scheme,
+    )
+
+
+def task_object(
+    task_id: str, proc_times: list[int], resource: str, weight: str
+) -> rx.Component:
+    return rx.hstack(
+        rx.grid(
+            selected_chips(task_id),
+            selected_chips(proc_times),
+            selected_chips(resource),
+            selected_chips(weight),
+            collumns="4",
+            width="4",
+            spacing="3",
+        ),
+        width="100%",
     )
 
 
@@ -143,5 +131,3 @@ def slider_input(
         align="center",
         spacing="3",
     )
-
-

@@ -12,9 +12,8 @@ def objective_function(
     precedences: Dict[int, Any] = None,
     energy_constraint: Dict[str, Any] = None,
     total_resource: int = None,
-    alpha_precedence: float = 10**6,  # Hard constraint
-    alpha_load: float = 100.0,  # Soft constraint
-    alpha_energy: float = 1.0,  # Energy Exceed (Medium)
+    alpha_load: float = 0.25,  # Soft constraint
+    alpha_energy: float = 0.25,  # Energy Exceed (Medium)
     verbose: bool = False,  # Detail để tune
 ) -> Dict[str, float]:
     """Objective: Minimize makespan + penalty
@@ -73,12 +72,16 @@ def objective_function(
 
     # Makespan, std_dev
     makespan = compute_makespan(task_milestones=task_completion_milestones)
-    std_dev = calculate_load_standard_deviation(schedule, len(schedule), tasks)
+    std_dev = (
+        calculate_load_standard_deviation(schedule, len(schedule), tasks)
+        if load_balance
+        else 0
+    )
 
     # Cost
     cost = (
-        makespan
-        + alpha_precedence * precedence_penalty
+        makespan * (1 - alpha_load - alpha_energy)
+        + precedence_penalty * int(1e6)
         + alpha_load * std_dev
         + alpha_energy * energy_exceeds_penalty
     )
@@ -86,7 +89,7 @@ def objective_function(
     return {
         "total_cost": cost,
         "makespan": makespan,
-        "precedence_penalty": alpha_precedence * precedence_penalty,
+        "precedence_penalty": precedence_penalty,
         "std_dev": alpha_load * std_dev,
         "energy_exceeds": alpha_energy * energy_exceeds_penalty,
         "task_milestones": task_completion_milestones,

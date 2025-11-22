@@ -27,6 +27,8 @@ class WhaleOptimizationAlgorithm:
         total_resource: int = None,
         energy_constraint: Dict[str, Any] = None,
         explore_ratio: float = 0.5,
+        alpha_load: float = 0.25,  # Soft constraint
+        alpha_energy: float = 0.25,  # Energy Exceed (Medium)
     ):
         if n_machines <= 0 or n_schedules <= 0:
             raise ValueError()
@@ -40,6 +42,9 @@ class WhaleOptimizationAlgorithm:
         self.energy_constraint = energy_constraint or None
         self.total_resource = total_resource or None
         self.explore_ratio = explore_ratio
+        self.alpha_load = alpha_load
+        self.alpha_energy = alpha_energy
+
         self.schedules: List[Schedule] = []
         self.best_schedule: Schedule = None
         self.history = []
@@ -54,7 +59,8 @@ class WhaleOptimizationAlgorithm:
                 setups=self.setups,
                 precedences=self.precedences,
                 energy_constraint=self.energy_constraint,
-                alpha_load=50.0,
+                alpha_energy=self.alpha_energy,
+                alpha_load=self.alpha_load,
                 verbose=True,
             )
 
@@ -116,7 +122,8 @@ class WhaleOptimizationAlgorithm:
                     precedences=self.precedences,
                     energy_constraint=self.energy_constraint,
                     total_resource=self.total_resource,
-                    alpha_load=50.0,
+                    alpha_energy=self.alpha_energy,
+                    alpha_load=self.alpha_load,
                     verbose=True,
                 )
 

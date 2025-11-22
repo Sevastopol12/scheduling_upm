@@ -41,6 +41,8 @@ def exploit(
     schedule: Dict[int, List[int]],
     tasks: Dict[int, Any],
     obj_function: callable,
+    alpha_load: float,  # Soft constraint
+    alpha_energy: float,  # Energy Exceed (Medium),
     n_ops: int = 1,
     energy_constraint: Dict[str, Any] = None,
     precedences: Dict[int, List[int]] = None,
@@ -62,6 +64,8 @@ def exploit(
                 "precedences": precedences,
                 "setups": setups,
                 "total_resource": total_resource,
+                "alpha_load": alpha_load,
+                "alpha_energy": alpha_energy,
             },
         ),
     ]
